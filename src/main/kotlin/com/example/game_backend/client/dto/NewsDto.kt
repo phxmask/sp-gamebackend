@@ -1,7 +1,9 @@
 package com.example.game_backend.client.dto
 
+import com.example.game_backend.controller.dto.NewsResponseDto
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
+import com.example.game_backend.controller.dto.NewsTypeDto as NewsTypeResponseDto
 
 @Serializable
 data class NewsDto(
@@ -16,3 +18,11 @@ enum class NewsTypeDto {
     GIFT,
     SYSTEM,
 }
+
+fun NewsDto.toNewsResponse(): NewsResponseDto =
+    NewsResponseDto(
+        timestamp = timestamp,
+        message = message,
+        // TODO: Validate
+        type = NewsTypeResponseDto.valueOf(type.name)
+    )
