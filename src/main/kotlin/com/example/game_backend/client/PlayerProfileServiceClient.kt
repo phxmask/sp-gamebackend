@@ -24,11 +24,11 @@ class PlayerProfileServiceClient {
             }
         }
 
-    suspend fun getDisplayName(id: Long): DisplayNameDto =
+    suspend fun getDisplayName(id: Long): String =
         client
             .get("getPlayerDisplayName") {
                 url {
                     appendPathSegments(id.toString())
                 }
-            }.body()
+            }.body<DisplayNameDto>().name
 }
