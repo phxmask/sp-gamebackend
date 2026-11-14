@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component
 class LeaderboardServiceClient {
     private val client =
         HttpClient(CIO) {
+            expectSuccess = true
             install(ContentNegotiation) {
                 json()
             }

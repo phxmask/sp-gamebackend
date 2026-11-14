@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component
 class ConfigServiceClient {
     private val client =
         HttpClient(CIO) {
+            expectSuccess = true
             install(ContentNegotiation) {
                 json()
             }

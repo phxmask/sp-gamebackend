@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component
 class PlayerProfileServiceClient {
     private val client =
         HttpClient(CIO) {
+            expectSuccess = true
             install(ContentNegotiation) {
                 json()
             }
