@@ -1,0 +1,29 @@
+package com.example.game_backend.client
+
+import com.example.game_backend.client.dto.ConfigDto
+import io.ktor.client.*
+import io.ktor.client.call.body
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.DefaultRequest
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.get
+import io.ktor.serialization.kotlinx.json.json
+import org.springframework.stereotype.Component
+
+@Component
+class ConfigServiceClient {
+    private val client =
+        HttpClient(CIO) {
+            install(ContentNegotiation) {
+                json()
+            }
+            install(DefaultRequest) {
+                url("http://localhost:8083/")
+            }
+        }
+
+    suspend fun getConfig(): ConfigDto =
+        client
+            .get("getConfig")
+            .body()
+}
