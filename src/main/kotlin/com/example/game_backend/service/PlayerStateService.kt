@@ -86,20 +86,23 @@ class PlayerStateService(
                 }.awaitAll()
         }
 
-    // TODO: Confirm what I'll mock for the index (1, 10)
     private suspend fun getTopEntries(): List<Pair<LeaderboardDto, Long>> =
         Either
             .catch { leaderboardClient.getTopLeaderboard(10).mapIndexed { index, entry -> entry to 1L + index } }
             .onLeft { log.warn("Failed to fetch top leaderboard, returning no entries: {}", it.message) }
             .getOrElse { emptyList() }
 
-    // TODO: Handle edge cases properly (ties, battles not started yet, etc)
-    // Looking at arena in tacticus, positions on ties are not shared, so something resolves it
     private suspend fun getAroundPlayerEntries(
         playerId: Long,
         dailyScore: Int,
-    ): List<Pair<LeaderboardDto, Long>> =
-        Either
+    ): List<Pair<LeaderboardDto, Long>> {
+        // If the player hasn't scored yet, we don't try to return their position or the players around them
+        // modelled after how tacticus shows only the top ranked in this case.
+        if (dailyScore == 0) {
+            return emptyList()
+        }
+
+        return Either
             .catch {
                 val playerPosition = leaderboardClient.getLeaderboardPosition(dailyScore)
                 val start = maxOf(1L, playerPosition - 2)
@@ -114,6 +117,7 @@ class PlayerStateService(
                 )
             }
             .getOrElse { emptyList() }
+    }
 
     private suspend fun getDisplayNameOrUnknown(playerId: Long): String =
         Either
