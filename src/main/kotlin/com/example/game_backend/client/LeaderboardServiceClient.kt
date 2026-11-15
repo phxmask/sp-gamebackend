@@ -25,13 +25,14 @@ class LeaderboardServiceClient {
             }
         }
 
-    suspend fun getLeaderboardPosition(score: Int): Long {
-        return client.get("getLeaderboardPosition") {
-            url {
-                appendPathSegments(score.toString())
-            }
-        }.body<LeaderboardPositionDto>().position
-    }
+    suspend fun getLeaderboardPosition(score: Int): Long =
+        client
+            .get("getLeaderboardPosition") {
+                url {
+                    appendPathSegments(score.toString())
+                }
+            }.body<LeaderboardPositionDto>()
+            .position
 
     suspend fun getLeaderboard(
         startPosition: Long,
@@ -42,5 +43,8 @@ class LeaderboardServiceClient {
                 url {
                     appendPathSegments(startPosition.toString(), endPosition.toString())
                 }
-            }.body()
+            }.body<List<LeaderboardDto>>()
+            .sortedByDescending {
+                it.score
+            } // As per the assigment, its not clear if this list is sorted already, this could be dropped based on the API specification
 }
