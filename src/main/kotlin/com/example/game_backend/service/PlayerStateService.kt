@@ -106,9 +106,22 @@ class PlayerStateService(
             .catch {
                 val playerPosition = leaderboardClient.getLeaderboardPosition(dailyScore)
                 val start = maxOf(1L, playerPosition - 2)
-                leaderboardClient
-                    .getLeaderboard(start, playerPosition + 2)
-                    .mapIndexed { index, entry -> entry to start + index }
+                val entries =
+                    leaderboardClient
+                        .getLeaderboard(start, playerPosition + 2)
+                        .mapIndexed { index, entry -> entry to start + index }
+
+                // The provided API for leaderboards doesn't allow looking up the positions by playerId
+                // so as we do by score, we can't be sure it returns the player in case of many ties.
+                // In case the player is not in the returned data we insert it manually
+                if (entries.any { (entry, _) -> entry.playerId == playerId }) {
+                    entries
+                } else {
+                    (
+                        entries.filterNot { (_, position) -> position == playerPosition } +
+                            (LeaderboardDto(playerId, dailyScore) to playerPosition)
+                    ).sortedBy { (_, position) -> position }
+                }
             }.onLeft {
                 log.warn(
                     "Failed to fetch leaderboard around player {}, returning no entries: {}",
