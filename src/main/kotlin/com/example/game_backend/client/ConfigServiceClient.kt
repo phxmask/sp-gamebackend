@@ -8,6 +8,7 @@ import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.serialization.kotlinx.json.json
+import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
 
 @Component
@@ -23,6 +24,7 @@ class ConfigServiceClient {
             }
         }
 
+    @Cacheable("config")
     suspend fun getConfig(): ConfigDto =
         client
             .get("getConfig")
