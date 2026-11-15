@@ -25,7 +25,6 @@ import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
 @Component
@@ -93,12 +92,6 @@ class LeaderboardServiceClient {
 }
 
 private class LeaderboardServiceMock {
-    private val scores =
-        ConcurrentHashMap<Long, Int>().apply {
-            val seeded = Random(42)
-            (1L..1000L).forEach { playerId -> put(playerId, seeded.nextInt(0, 5000)) }
-        }
-
     val engine =
         MockEngine { request ->
             delay(latencyMillis())
@@ -111,22 +104,16 @@ private class LeaderboardServiceMock {
                     .split('/')
             when {
                 request.method == HttpMethod.Get && segments.first() == "getLeaderboardPosition" -> {
-                    val score = segments[1].toInt()
-                    respondJson(Json.encodeToString(LeaderboardPositionDto(scores.values.count { it > score } + 1L)))
+                    respondJson(Json.encodeToString(LeaderboardPositionDto(positionFor(segments[1].toInt()))))
                 }
 
                 request.method == HttpMethod.Get && segments.first() == "getLeaderboard" -> {
-                    val start = segments[1].toInt()
-                    val end = segments[2].toInt()
-                    val ranked =
-                        scores.entries
-                            .map { LeaderboardDto(playerId = it.key, score = it.value) }
-                            .sortedWith(compareByDescending<LeaderboardDto> { it.score }.thenBy { it.playerId })
-                    respondJson(Json.encodeToString(ranked.drop(start - 1).take((end - start + 1).coerceAtLeast(0))))
+                    val start = segments[1].toLong().coerceAtLeast(1)
+                    val end = segments[2].toLong().coerceIn(start - 1, start + MAX_PAGE_SIZE - 1)
+                    respondJson(Json.encodeToString((start..end).map(::entryAt)))
                 }
 
                 request.method == HttpMethod.Post && segments.first() == "updateLeaderboard" -> {
-                    scores[segments[1].toLong()] = segments[2].toInt()
                     respondOk()
                 }
 
@@ -134,6 +121,19 @@ private class LeaderboardServiceMock {
                     error("Unhandled ${request.method.value} ${request.url}")
                 }
             }
+        }
+
+    // Higher score -> better position, always below the fake top spots
+    private fun positionFor(score: Int): Long = TOP_SPOTS + 1 + SCORE_SCALE / (score.coerceAtLeast(0) + 1)
+
+    private fun entryAt(position: Long): LeaderboardDto =
+        if (position <= TOP_SPOTS) {
+            LeaderboardDto(playerId = position, score = TOP_SCORE - position.toInt())
+        } else {
+            LeaderboardDto(
+                playerId = FAKE_PLAYER_ID_OFFSET + position,
+                score = (SCORE_SCALE / (position - TOP_SPOTS)).toInt(),
+            )
         }
 
     private fun MockRequestHandleScope.respondJson(content: String) =
@@ -156,5 +156,10 @@ private class LeaderboardServiceMock {
         const val MAX_RESPONSE_TIME_MILLIS = 50L
         const val SLOW_RESPONSE_TIME_MILLIS = 150L
         const val FAILURE_CHANCE_PERCENTAGE = 2
+        const val TOP_SPOTS = 10L
+        const val TOP_SCORE = 1_000_000_000
+        const val SCORE_SCALE = 1_000_000L
+        const val MAX_PAGE_SIZE = 100L
+        const val FAKE_PLAYER_ID_OFFSET = 1_000_000_000L
     }
 }
