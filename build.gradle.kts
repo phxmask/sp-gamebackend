@@ -25,6 +25,7 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine")
     implementation("org.springframework.boot:spring-boot-starter-webclient")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
+    implementation("org.springframework.boot:spring-boot-starter-kotlinx-serialization-json")
     implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
