@@ -13,12 +13,12 @@ import com.example.game_backend.controller.dto.NewsResponseDto
 import com.example.game_backend.controller.dto.PlayerStateDto
 import com.example.game_backend.domain.PlayerState
 import com.example.game_backend.domain.PlayerStateStore
+import com.example.game_backend.domain.toUtcDate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import org.springframework.stereotype.Service
-import java.time.LocalDate
 import kotlin.time.Clock
 
 @Service
@@ -33,7 +33,7 @@ class PlayerStateService(
         coroutineScope {
             val now = Clock.System.now()
             val state =
-                playerState.players.compute(playerId to LocalDate.now()) { _, v ->
+                playerState.players.compute(playerId to now.toUtcDate()) { _, v ->
                     (v ?: PlayerState()).copy(lastActiveTime = now)
                 }!!
 
@@ -74,7 +74,7 @@ class PlayerStateService(
                     async {
                         entry.toLeaderboardEntryDto(
                             position = position,
-                            name = getDisplayNameOrUnknown(entry.playerId)
+                            name = getDisplayNameOrUnknown(entry.playerId),
                         )
                     }
                 }.awaitAll()

@@ -7,8 +7,8 @@ import com.example.game_backend.client.ConfigServiceClient
 import com.example.game_backend.client.LeaderboardServiceClient
 import com.example.game_backend.domain.PlayerState
 import com.example.game_backend.domain.PlayerStateStore
+import com.example.game_backend.domain.toUtcDate
 import org.springframework.stereotype.Service
-import java.time.LocalDate
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
@@ -46,7 +46,7 @@ class BattleService(
         val now = Clock.System.now()
         var limitReached = false
 
-        playerState.players.compute(playerId to LocalDate.now()) { _, v ->
+        playerState.players.compute(playerId to now.toUtcDate()) { _, v ->
             val currentState = v ?: PlayerState()
             val levelStartCount = currentState.dailyBattleStats.getOrDefault(levelId, 0)
             if (levelStartCount >= level.maxDailyAttempts) {
@@ -76,7 +76,7 @@ class BattleService(
         var notStarted = false
 
         val updated =
-            playerState.players.compute(playerId to LocalDate.now()) { _, v ->
+            playerState.players.compute(playerId to now.toUtcDate()) { _, v ->
                 if (v == null || battleId !in v.startedBattles) {
                     notStarted = true
                     v
