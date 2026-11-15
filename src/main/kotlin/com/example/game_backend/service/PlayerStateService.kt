@@ -1,5 +1,7 @@
 package com.example.game_backend.service
 
+import arrow.core.Either
+import arrow.core.getOrElse
 import com.example.game_backend.client.ConfigServiceClient
 import com.example.game_backend.client.LeaderboardServiceClient
 import com.example.game_backend.client.NewsServiceClient
@@ -14,10 +16,10 @@ import com.example.game_backend.controller.dto.PlayerStateDto
 import com.example.game_backend.domain.PlayerState
 import com.example.game_backend.domain.PlayerStateStore
 import com.example.game_backend.domain.toUtcDate
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import kotlin.time.Clock
 
@@ -58,7 +60,11 @@ class PlayerStateService(
             )
         }
 
-    private suspend fun getNews(): List<NewsResponseDto> = newsClient.getNews(5).map { it.toNewsResponse() }
+    private suspend fun getNews(): List<NewsResponseDto> =
+        Either
+            .catch { newsClient.getNews(5).map { it.toNewsResponse() } }
+            .onLeft { log.warn("Failed to fetch news, returning no news: {}", it.message) }
+            .getOrElse { emptyList() }
 
     private suspend fun getLeaderboard(
         playerId: Long,
@@ -82,26 +88,40 @@ class PlayerStateService(
 
     // TODO: Confirm what I'll mock for the index (1, 10)
     private suspend fun getTopEntries(): List<Pair<LeaderboardDto, Long>> =
-        leaderboardClient.getTopLeaderboard(10).mapIndexed { index, entry -> entry to 1L + index }
+        Either
+            .catch { leaderboardClient.getTopLeaderboard(10).mapIndexed { index, entry -> entry to 1L + index } }
+            .onLeft { log.warn("Failed to fetch top leaderboard, returning no entries: {}", it.message) }
+            .getOrElse { emptyList() }
 
     // TODO: Handle edge cases properly (ties, battles not started yet, etc)
+    // Looking at arena in tacticus, positions on ties are not shared, so something resolves it
     private suspend fun getAroundPlayerEntries(
         playerId: Long,
         dailyScore: Int,
-    ): List<Pair<LeaderboardDto, Long>> {
-        val playerPosition = leaderboardClient.getLeaderboardPosition(dailyScore)
-        val start = maxOf(1L, playerPosition - 2)
-        return leaderboardClient
-            .getLeaderboard(start, playerPosition + 2)
-            .mapIndexed { index, entry -> entry to start + index }
-    }
+    ): List<Pair<LeaderboardDto, Long>> =
+        Either
+            .catch {
+                val playerPosition = leaderboardClient.getLeaderboardPosition(dailyScore)
+                val start = maxOf(1L, playerPosition - 2)
+                leaderboardClient
+                    .getLeaderboard(start, playerPosition + 2)
+                    .mapIndexed { index, entry -> entry to start + index }
+            }.onLeft {
+                log.warn(
+                    "Failed to fetch leaderboard around player {}, returning no entries: {}",
+                    playerId,
+                    it.message
+                )
+            }
+            .getOrElse { emptyList() }
 
     private suspend fun getDisplayNameOrUnknown(playerId: Long): String =
-        try {
-            playerProfileClient.getDisplayName(playerId)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            "<UNKNOWN>"
-        }
+        Either
+            .catch { playerProfileClient.getDisplayName(playerId) }
+            .onLeft { log.warn("Failed to fetch display name of player {}, using fallback: {}", playerId, it.message) }
+            .getOrElse { "<UNKNOWN>" }
+
+    companion object {
+        private val log = LoggerFactory.getLogger(PlayerStateService::class.java)
+    }
 }
