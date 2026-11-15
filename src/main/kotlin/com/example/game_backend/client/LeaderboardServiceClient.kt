@@ -54,8 +54,9 @@ class LeaderboardServiceClient {
     suspend fun getTopLeaderboard(count: Long): List<LeaderboardDto> = getLeaderboard(1, count)
 
     // This endpoint is not defined in the assignment
-    suspend fun updatePlayerScore(playerId: Long, score: Int): Long =
+    suspend fun updatePlayerScore(playerId: Long, score: Int) {
         client.post("updateLeaderboard") {
             url { appendPathSegments(playerId.toString(), score.toString()) }
-        }.body<LeaderboardPositionDto>().position
+        }
+    }
 }
