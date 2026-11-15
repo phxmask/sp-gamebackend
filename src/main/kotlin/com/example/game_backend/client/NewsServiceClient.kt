@@ -6,6 +6,7 @@ import io.ktor.client.*
 import io.ktor.client.call.body
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.respondError
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -78,6 +79,9 @@ private class NewsServiceMock {
     val engine =
         MockEngine { request ->
             delay(latencyMillis())
+            if (Random.nextInt(100) < FAILURE_CHANCE_PERCENTAGE) {
+                return@MockEngine respondError(HttpStatusCode.ServiceUnavailable)
+            }
             val segments =
                 request.url.encodedPath
                     .trim('/')
@@ -109,6 +113,7 @@ private class NewsServiceMock {
         const val MIN_RESPONSE_TIME_MILLIS = 30L
         const val MAX_RESPONSE_TIME_MILLIS = 50L
         const val SLOW_RESPONSE_TIME_MILLIS = 150L
+        const val FAILURE_CHANCE_PERCENTAGE = 2
 
         private val MESSAGES =
             listOf(
