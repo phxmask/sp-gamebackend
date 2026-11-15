@@ -82,7 +82,7 @@ class PlayerStateService(
 
     // TODO: Confirm what I'll mock for the index (1, 10)
     private suspend fun getTopEntries(): List<Pair<LeaderboardDto, Long>> =
-        leaderboardClient.getLeaderboard(1, 10).mapIndexed { index, entry -> entry to 1L + index }
+        leaderboardClient.getTopLeaderboard(10).mapIndexed { index, entry -> entry to 1L + index }
 
     // TODO: Handle edge cases properly (ties, battles not started yet, etc)
     private suspend fun getAroundPlayerEntries(

@@ -11,6 +11,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.http.appendPathSegments
 import io.ktor.serialization.kotlinx.json.json
+import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
 
 @Component
@@ -48,6 +49,9 @@ class LeaderboardServiceClient {
             .sortedByDescending {
                 it.score
             } // As per the assigment, its not clear if this list is sorted already, this could be dropped based on the API specification
+
+    @Cacheable("topLeaderboard")
+    suspend fun getTopLeaderboard(count: Long): List<LeaderboardDto> = getLeaderboard(1, count)
 
     // This endpoint is not defined in the assignment
     suspend fun updatePlayerScore(playerId: Long, score: Int): Long =
