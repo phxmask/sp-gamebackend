@@ -3,19 +3,25 @@ package com.example.game_backend.client
 import com.example.game_backend.client.dto.ConfigDto
 import io.ktor.client.*
 import io.ktor.client.call.body
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.delay
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
+import kotlin.random.Random
 
 @Component
 class ConfigServiceClient {
     private val client =
-        HttpClient(CIO) {
+        HttpClient(ConfigServiceMock().engine) {
             expectSuccess = true
             install(HttpTimeout) {
                 connectTimeoutMillis = 250L
@@ -34,4 +40,50 @@ class ConfigServiceClient {
         client
             .get("getConfig")
             .body()
+}
+
+private class ConfigServiceMock {
+    val engine =
+        MockEngine { request ->
+            delay(latencyMillis())
+            when (request.url.encodedPath) {
+                "/getConfig" -> {
+                    respond(
+                        content = CONFIG_JSON,
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                    )
+                }
+
+                else -> {
+                    error("Unhandled ${request.url}")
+                }
+            }
+        }
+
+    private fun latencyMillis(): Long =
+        if (Random.nextInt(100) < SLOW_RESPONSE_CHANCE_PERCENTAGE) {
+            SLOW_RESPONSE_TIME_MILLIS
+        } else {
+            Random.nextLong(MIN_RESPONSE_TIME_MILLIS, MAX_RESPONSE_TIME_MILLIS + 1)
+        }
+
+    companion object {
+        const val SLOW_RESPONSE_CHANCE_PERCENTAGE = 5
+        const val MIN_RESPONSE_TIME_MILLIS = 30L
+        const val MAX_RESPONSE_TIME_MILLIS = 50L
+        const val SLOW_RESPONSE_TIME_MILLIS = 150L
+
+        // n intendo pls don't sue me!!
+        private val CONFIG_JSON =
+            """
+            {
+              "levels": [
+                { "id": 1, "name": "Rainbow Road", "maxDailyAttempts": 5 },
+                { "id": 2, "name": "Donut Plains", "maxDailyAttempts": 3 },
+                { "id": 3, "name": "Ghost Valley", "maxDailyAttempts": 2 }
+              ]
+            }
+            """.trimIndent()
+    }
 }

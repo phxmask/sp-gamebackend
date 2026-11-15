@@ -32,6 +32,7 @@ dependencies {
     implementation("tools.jackson.module:jackson-module-kotlin")
     implementation("io.ktor:ktor-client-core:3.4.3")
     implementation("io.ktor:ktor-client-cio:3.4.3")
+    implementation("io.ktor:ktor-client-mock:3.4.3")
     implementation("io.ktor:ktor-client-content-negotiation:3.4.3")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:3.4.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.13.0")
