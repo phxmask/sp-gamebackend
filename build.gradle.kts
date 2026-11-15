@@ -4,6 +4,7 @@ plugins {
     id("org.springframework.boot") version "4.1.2"
     id("io.spring.dependency-management") version "1.1.7"
     kotlin("plugin.serialization") version "2.4.10"
+    id("org.jetbrains.kotlinx.kover") version "0.9.9"
 }
 
 group = "com.example"
@@ -39,13 +40,13 @@ dependencies {
     implementation("io.github.crowded-libs:kotlin-lmdb-jvm:0.5.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.13.0")
     implementation("io.arrow-kt:arrow-core:2.3.0")
-    developmentOnly("org.springframework.boot:spring-boot-devtools")
     testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
-    testImplementation("org.springframework.boot:spring-boot-starter-session-data-redis-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webclient-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
+    testImplementation("io.mockk:mockk:1.14.11")
+    testImplementation("com.ninja-squad:springmockk:5.0.1")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -57,4 +58,14 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+kover {
+    reports {
+        filters {
+            excludes {
+                classes("com.example.game_backend.GameBackendApplication*", "*ServiceMock*")
+            }
+        }
+    }
 }
