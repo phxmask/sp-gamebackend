@@ -36,6 +36,7 @@ dependencies {
     implementation("io.ktor:ktor-client-mock:3.4.3")
     implementation("io.ktor:ktor-client-content-negotiation:3.4.3")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:3.4.3")
+    implementation("io.github.crowded-libs:kotlin-lmdb-jvm:0.5.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.13.0")
     implementation("io.arrow-kt:arrow-core:2.3.0")
     developmentOnly("org.springframework.boot:spring-boot-devtools")

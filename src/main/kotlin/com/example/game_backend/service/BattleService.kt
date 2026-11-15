@@ -6,8 +6,8 @@ import arrow.core.right
 import com.example.game_backend.client.ConfigServiceClient
 import com.example.game_backend.client.LeaderboardServiceClient
 import com.example.game_backend.domain.PlayerState
-import com.example.game_backend.domain.PlayerStateStore
 import com.example.game_backend.domain.toUtcDate
+import com.example.game_backend.persistence.PlayerStateLMDBStore
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
@@ -34,7 +34,7 @@ sealed interface CompleteBattleError {
 
 @Service
 class BattleService(
-    val playerState: PlayerStateStore,
+    val playerState: PlayerStateLMDBStore,
     val leaderboardClient: LeaderboardServiceClient,
     val configClient: ConfigServiceClient,
 ) {
@@ -49,12 +49,12 @@ class BattleService(
         val now = Clock.System.now()
         var limitReached = false
 
-        playerState.players.compute(playerId to now.toUtcDate()) { _, v ->
+        playerState.compute(playerId, now.toUtcDate()) { v ->
             val currentState = v ?: PlayerState()
             val levelStartCount = currentState.dailyBattleStats.getOrDefault(levelId, 0)
             if (levelStartCount >= level.maxDailyAttempts) {
                 limitReached = true
-                v
+                null
             } else {
                 currentState.copy(
                     lastActiveTime = now,
@@ -99,7 +99,7 @@ class BattleService(
             ?: return CompleteBattleError.BattleNotStarted(battleId).left()
 
         // We always get today's score for the leaderboard position, as battles from a previous day are not scored
-        val todayScore = playerState.players[playerId to today]?.dailyScore ?: 0
+        val todayScore = playerState.get(playerId, today)?.dailyScore ?: 0
         return getLeaderboardPositionOrNull(playerId, todayScore).right()
     }
 
@@ -117,7 +117,7 @@ class BattleService(
                 )
             }.getOrNull()
 
-    private fun completeStartedBattle(
+    private suspend fun completeStartedBattle(
         playerId: Long,
         day: LocalDate,
         battleId: Uuid,
@@ -125,8 +125,8 @@ class BattleService(
         now: Instant,
     ): PlayerState? {
         var completed: PlayerState? = null
-        playerState.players.computeIfPresent(playerId to day) { _, v ->
-            if (battleId in v.startedBattles) {
+        playerState.compute(playerId, day) { v ->
+            if (v != null && battleId in v.startedBattles) {
                 v
                     .copy(
                         startedBattles = v.startedBattles - battleId,
@@ -134,7 +134,7 @@ class BattleService(
                         lastActiveTime = now,
                     ).also { completed = it }
             } else {
-                v
+                null
             }
         }
         return completed

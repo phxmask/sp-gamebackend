@@ -14,8 +14,8 @@ import com.example.game_backend.controller.dto.LevelDto
 import com.example.game_backend.controller.dto.NewsResponseDto
 import com.example.game_backend.controller.dto.PlayerStateDto
 import com.example.game_backend.domain.PlayerState
-import com.example.game_backend.domain.PlayerStateStore
 import com.example.game_backend.domain.toUtcDate
+import com.example.game_backend.persistence.PlayerStateLMDBStore
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -29,13 +29,13 @@ class PlayerStateService(
     private val configClient: ConfigServiceClient,
     private val newsClient: NewsServiceClient,
     private val leaderboardClient: LeaderboardServiceClient,
-    private val playerState: PlayerStateStore,
+    private val playerState: PlayerStateLMDBStore,
 ) {
     suspend fun getPlayerState(playerId: Long): PlayerStateDto =
         coroutineScope {
             val now = Clock.System.now()
             val state =
-                playerState.players.compute(playerId to now.toUtcDate()) { _, v ->
+                playerState.compute(playerId, now.toUtcDate()) { v ->
                     (v ?: PlayerState()).copy(lastActiveTime = now)
                 }!!
 
