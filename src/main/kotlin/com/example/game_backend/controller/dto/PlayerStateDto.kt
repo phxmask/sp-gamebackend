@@ -38,4 +38,5 @@ enum class NewsTypeDto {
     EVENT,
     GIFT,
     SYSTEM,
+    UNKNOWN,
 }

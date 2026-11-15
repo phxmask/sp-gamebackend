@@ -14,6 +14,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.delay
+import kotlinx.serialization.json.Json
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
 import kotlin.random.Random
@@ -28,7 +29,12 @@ class ConfigServiceClient {
                 requestTimeoutMillis = 500L
             }
             install(ContentNegotiation) {
-                json()
+                json(
+                    Json {
+                        coerceInputValues = true
+                        ignoreUnknownKeys = true
+                    },
+                )
             }
             install(DefaultRequest) {
                 url("http://localhost:8083/")

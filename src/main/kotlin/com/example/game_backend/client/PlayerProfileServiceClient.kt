@@ -31,7 +31,12 @@ class PlayerProfileServiceClient {
             }
 
             install(ContentNegotiation) {
-                json()
+                json(
+                    Json {
+                        coerceInputValues = true
+                        ignoreUnknownKeys = true
+                    },
+                )
             }
             install(DefaultRequest) {
                 url("http://localhost:8083/")

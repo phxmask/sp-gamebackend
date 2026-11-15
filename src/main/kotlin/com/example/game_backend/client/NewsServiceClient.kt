@@ -17,6 +17,7 @@ import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
 import kotlin.random.Random
@@ -34,7 +35,12 @@ class NewsServiceClient {
             }
 
             install(ContentNegotiation) {
-                json()
+                json(
+                    Json {
+                        coerceInputValues = true
+                        ignoreUnknownKeys = true
+                    },
+                )
             }
             install(DefaultRequest) {
                 url("http://localhost:8083/")
@@ -42,13 +48,25 @@ class NewsServiceClient {
         }
 
     @Cacheable("news", sync = true)
-    suspend fun getNews(count: Int): List<NewsDto> =
-        client
-            .get("getNews") {
-                url {
-                    appendPathSegments(count.toString())
-                }
-            }.body()
+    suspend fun getNews(count: Int): List<NewsDto> {
+        val news =
+            client
+                .get("getNews") {
+                    url {
+                        appendPathSegments(count.toString())
+                    }
+                }.body<List<NewsDto>>()
+
+        val unknownCount = news.count { it.type == NewsTypeDto.UNKNOWN }
+        if (unknownCount > 0) {
+            log.warn("Received {} news item(s) with an unknown type", unknownCount)
+        }
+        return news
+    }
+
+    companion object {
+        private val log = LoggerFactory.getLogger(NewsServiceClient::class.java)
+    }
 }
 
 private class NewsServiceMock {

@@ -8,7 +8,7 @@ import com.example.game_backend.controller.dto.NewsTypeDto as NewsTypeResponseDt
 @Serializable
 data class NewsDto(
     val timestamp: Instant,
-    val type: NewsTypeDto,
+    val type: NewsTypeDto = NewsTypeDto.UNKNOWN,
     val message: String,
 )
 
@@ -17,6 +17,7 @@ enum class NewsTypeDto {
     EVENT,
     GIFT,
     SYSTEM,
+    UNKNOWN,
 }
 
 fun NewsDto.toNewsResponse(): NewsResponseDto =
@@ -28,5 +29,6 @@ fun NewsDto.toNewsResponse(): NewsResponseDto =
                 NewsTypeDto.EVENT -> NewsTypeResponseDto.EVENT
                 NewsTypeDto.GIFT -> NewsTypeResponseDto.GIFT
                 NewsTypeDto.SYSTEM -> NewsTypeResponseDto.SYSTEM
+                NewsTypeDto.UNKNOWN -> NewsTypeResponseDto.UNKNOWN
             },
     )
