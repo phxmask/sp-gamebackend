@@ -1,5 +1,6 @@
 package com.example.game_backend.controller
 
+import com.example.game_backend.controller.dto.CompleteBattleResponseDto
 import com.example.game_backend.service.BattleService
 import com.example.game_backend.service.CompleteBattleError
 import com.example.game_backend.service.StartBattleError
@@ -42,7 +43,7 @@ class BattleController(
 
         return battleService.completeBattle(playerId, parsedBattleId, score).fold(
             ifLeft = { it.toResponse() },
-            ifRight = { ResponseEntity.ok(it) },
+            ifRight = { ResponseEntity.ok(CompleteBattleResponseDto(position = it)) },
         )
     }
 }

@@ -113,10 +113,9 @@ class PlayerStateService(
                 log.warn(
                     "Failed to fetch leaderboard around player {}, returning no entries: {}",
                     playerId,
-                    it.message
+                    it.message,
                 )
-            }
-            .getOrElse { emptyList() }
+            }.getOrElse { emptyList() }
     }
 
     private suspend fun getDisplayNameOrUnknown(playerId: Long): String =

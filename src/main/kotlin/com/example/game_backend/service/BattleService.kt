@@ -74,7 +74,7 @@ class BattleService(
         playerId: Long,
         battleId: Uuid,
         score: Int,
-    ): Either<CompleteBattleError, Long> {
+    ): Either<CompleteBattleError, Long?> {
         val now = Clock.System.now()
         val today = now.toUtcDate()
 
@@ -87,20 +87,35 @@ class BattleService(
             // the new leaderboard position, so we need to update it first then request the new position
             // In case of failures we just log an error, since score is client side in this setup (bad!!) and the player will
             // just report it again next time
+            // TODO: Resend failed score updates, since otherwise players might lose score in their last battle of the day 
             Either
                 .catch { leaderboardClient.updatePlayerScore(playerId, completedToday.dailyScore) }
                 .onLeft { log.error("Failed to update leaderboard score for player {}: {}", playerId, it.message) }
 
-            return leaderboardClient.getLeaderboardPosition(completedToday.dailyScore).right()
+            return getLeaderboardPositionOrNull(playerId, completedToday.dailyScore).right()
         }
 
         completeStartedBattle(playerId, today.minusDays(1), battleId, score, now)
             ?: return CompleteBattleError.BattleNotStarted(battleId).left()
 
-        // We always get today's score for the leaderboard position, as battles from a previous day are not scored 
+        // We always get today's score for the leaderboard position, as battles from a previous day are not scored
         val todayScore = playerState.players[playerId to today]?.dailyScore ?: 0
-        return leaderboardClient.getLeaderboardPosition(todayScore).right()
+        return getLeaderboardPositionOrNull(playerId, todayScore).right()
     }
+
+    private suspend fun getLeaderboardPositionOrNull(
+        playerId: Long,
+        score: Int,
+    ): Long? =
+        Either
+            .catch { leaderboardClient.getLeaderboardPosition(score) }
+            .onLeft {
+                log.warn(
+                    "Failed to fetch leaderboard position for player {}, returning no position: {}",
+                    playerId,
+                    it.message,
+                )
+            }.getOrNull()
 
     private fun completeStartedBattle(
         playerId: Long,
