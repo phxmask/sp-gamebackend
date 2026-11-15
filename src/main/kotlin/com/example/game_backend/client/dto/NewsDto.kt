@@ -23,6 +23,10 @@ fun NewsDto.toNewsResponse(): NewsResponseDto =
     NewsResponseDto(
         timestamp = timestamp,
         message = message,
-        // TODO: Validate
-        type = NewsTypeResponseDto.valueOf(type.name),
+        type =
+            when (type) {
+                NewsTypeDto.EVENT -> NewsTypeResponseDto.EVENT
+                NewsTypeDto.GIFT -> NewsTypeResponseDto.GIFT
+                NewsTypeDto.SYSTEM -> NewsTypeResponseDto.SYSTEM
+            },
     )
