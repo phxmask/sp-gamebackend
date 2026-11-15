@@ -6,6 +6,7 @@ import io.ktor.client.*
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.DefaultRequest
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -19,6 +20,11 @@ class LeaderboardServiceClient {
     private val client =
         HttpClient(CIO) {
             expectSuccess = true
+            install(HttpTimeout) {
+                connectTimeoutMillis = 250L
+                requestTimeoutMillis = 500L
+            }
+
             install(ContentNegotiation) {
                 json()
             }
@@ -54,7 +60,10 @@ class LeaderboardServiceClient {
     suspend fun getTopLeaderboard(count: Long): List<LeaderboardDto> = getLeaderboard(1, count)
 
     // This endpoint is not defined in the assignment
-    suspend fun updatePlayerScore(playerId: Long, score: Int) {
+    suspend fun updatePlayerScore(
+        playerId: Long,
+        score: Int,
+    ) {
         client.post("updateLeaderboard") {
             url { appendPathSegments(playerId.toString(), score.toString()) }
         }
