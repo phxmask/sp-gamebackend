@@ -87,7 +87,7 @@ class BattleService(
             // the new leaderboard position, so we need to update it first then request the new position
             // In case of failures we just log an error, since score is client side in this setup (bad!!) and the player will
             // just report it again next time
-            // TODO: Resend failed score updates, since otherwise players might lose score in their last battle of the day 
+            // TODO: Resend failed score updates, since otherwise players might lose score in their last battle of the day
             Either
                 .catch { leaderboardClient.updatePlayerScore(playerId, completedToday.dailyScore) }
                 .onLeft { log.error("Failed to update leaderboard score for player {}: {}", playerId, it.message) }

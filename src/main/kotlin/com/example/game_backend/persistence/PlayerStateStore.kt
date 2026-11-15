@@ -29,32 +29,41 @@ class PlayerStateLMDBStore(
     @Value("\${game.lmdb.path:./data/lmdb}") path: String,
     @Value("\${game.lmdb.map-size-mb:1024}") mapSizeMb: Long,
 ) {
-    private val env = Env().apply {
-        mapSize = (mapSizeMb * 1024 * 1024).toULong()
-        File(path).mkdirs()
-        // Syncing every commit can get quite slow so we set NoSync and sync periodically 
-        open(path, EnvOption.NoTLS, EnvOption.NoSync)
-    }
+    private val env =
+        Env().apply {
+            mapSize = (mapSizeMb * 1024 * 1024).toULong()
+            File(path).mkdirs()
+            // Syncing every commit can get quite slow so we set NoSync and sync periodically
+            open(path, EnvOption.NoTLS, EnvOption.NoSync)
+        }
 
     private val lifecycleLock = Any()
     private var closed = false
 
-    private val dbi: Dbi = env.beginTxn().use { txn ->
-        txn.dbiOpen(null, DbiOption.Create).also { txn.commit() }
-    }
+    private val dbi: Dbi =
+        env.beginTxn().use { txn ->
+            txn.dbiOpen(null, DbiOption.Create).also { txn.commit() }
+        }
 
-    // Single writer 
+    // Single writer
     private val readDispatcher = Dispatchers.IO
     private val writeDispatcher = Dispatchers.IO.limitedParallelism(1)
 
-    suspend fun get(playerId: Long, day: LocalDate): PlayerState? =
+    suspend fun get(
+        playerId: Long,
+        day: LocalDate,
+    ): PlayerState? =
         withContext(readDispatcher) {
             env.beginTxn(TxnOption.ReadOnly).use { txn ->
                 txn.get(dbi, key(playerId, day)).toValueByteArray()?.let(::decode)
             }
         }
 
-    suspend fun compute(playerId: Long, day: LocalDate, update: (PlayerState?) -> PlayerState?): PlayerState? =
+    suspend fun compute(
+        playerId: Long,
+        day: LocalDate,
+        update: (PlayerState?) -> PlayerState?,
+    ): PlayerState? =
         withContext(writeDispatcher) {
             env.beginTxn().use { txn ->
                 val k = key(playerId, day)
@@ -79,7 +88,12 @@ class PlayerStateLMDBStore(
 
     @Scheduled(cron = "\${game.lmdb.cleanup-cron:0 5 * * * *}", zone = "UTC")
     fun deleteExpired() {
-        val cutoff = Clock.System.now().toUtcDate().minusDays(RETAINED_DAYS).toString()
+        val cutoff =
+            Clock.System
+                .now()
+                .toUtcDate()
+                .minusDays(RETAINED_DAYS)
+                .toString()
         var deleted = 0
         do {
             val batch =
@@ -125,8 +139,11 @@ class PlayerStateLMDBStore(
         }
     }
 
-    // Since we cleanup by dates, the key has the day first so it is sorted correctly 
-    private fun key(playerId: Long, day: LocalDate) = "$day:$playerId".encodeToByteArray()
+    // Since we cleanup by dates, the key has the day first so it is sorted correctly
+    private fun key(
+        playerId: Long,
+        day: LocalDate,
+    ) = "$day:$playerId".encodeToByteArray()
 
     private fun encode(playerState: PlayerState) = Json.encodeToString(playerState).encodeToByteArray()
 
