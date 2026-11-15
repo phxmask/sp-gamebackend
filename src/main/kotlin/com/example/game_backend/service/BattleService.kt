@@ -7,8 +7,6 @@ import com.example.game_backend.client.ConfigServiceClient
 import com.example.game_backend.client.LeaderboardServiceClient
 import com.example.game_backend.domain.PlayerState
 import com.example.game_backend.domain.PlayerStateStore
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import kotlin.time.Clock
@@ -95,18 +93,9 @@ class BattleService(
             return CompleteBattleError.BattleNotStarted(battleId).left()
         }
 
-        return coroutineScope {
-            val updateLeaderboard =
-                async {
-                    leaderboardClient.updatePlayerScore(
-                        playerId,
-                        updated.dailyScore
-                    )
-                }
-            val position = async { leaderboardClient.getLeaderboardPosition(updated.dailyScore) }
-
-            updateLeaderboard.await()
-            position.await().right()
-        }
+        // Since updating the player score is not defined in the assignment, I preferred not to assume that it returns
+        // the new leaderboard position, so we need to update it first then request the new position
+        leaderboardClient.updatePlayerScore(playerId, updated.dailyScore)
+        return leaderboardClient.getLeaderboardPosition(updated.dailyScore).right()
     }
 }
