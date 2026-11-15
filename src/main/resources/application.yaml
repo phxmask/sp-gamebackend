@@ -1,6 +1,9 @@
 spring:
   application:
     name: game-backend
+  mvc:
+    problemdetails:
+      enabled: true
   cache:
     cache-names: "config,news,topLeaderboard,displayNames"
     caffeine:

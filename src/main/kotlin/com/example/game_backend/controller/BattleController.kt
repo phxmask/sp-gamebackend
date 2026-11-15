@@ -3,6 +3,8 @@ package com.example.game_backend.controller
 import com.example.game_backend.service.BattleService
 import com.example.game_backend.service.CompleteBattleError
 import com.example.game_backend.service.StartBattleError
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
@@ -29,7 +31,10 @@ class BattleController(
     suspend fun completeBattle(
         @PathVariable playerId: Long,
         @PathVariable battleId: String,
-        @PathVariable score: Int,
+        @PathVariable
+        @Min(-100, message = "Score must be between -100 and 100")
+        @Max(100, message = "Score must be between -100 and 100")
+        score: Int,
     ): ResponseEntity<*> {
         val parsedBattleId =
             Uuid.parseOrNull(battleId)
