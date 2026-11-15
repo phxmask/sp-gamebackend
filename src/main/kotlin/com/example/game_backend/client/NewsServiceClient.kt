@@ -8,6 +8,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondError
 import io.ktor.client.plugins.DefaultRequest
+import io.ktor.client.plugins.HttpRequestRetry
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
@@ -30,6 +31,10 @@ class NewsServiceClient {
     private val client =
         HttpClient(NewsServiceMock().engine) {
             expectSuccess = true
+            install(HttpRequestRetry) {
+                maxRetries = 1
+                delayMillis { 0L }
+            }
             install(HttpTimeout) {
                 connectTimeoutMillis = 250L
                 requestTimeoutMillis = 500L
