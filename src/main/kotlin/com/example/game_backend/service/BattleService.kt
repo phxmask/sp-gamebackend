@@ -85,7 +85,7 @@ class BattleService(
                 } else {
                     v.copy(
                         startedBattles = v.startedBattles - battleId,
-                        dailyScore = v.dailyScore + score,
+                        dailyScore = maxOf(0, v.dailyScore + score),
                         lastActiveTime = now,
                     )
                 }
