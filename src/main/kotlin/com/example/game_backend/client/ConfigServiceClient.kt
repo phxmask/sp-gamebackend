@@ -35,7 +35,7 @@ class ConfigServiceClient {
             }
         }
 
-    @Cacheable("config")
+    @Cacheable("config", sync = true)
     suspend fun getConfig(): ConfigDto =
         client
             .get("getConfig")

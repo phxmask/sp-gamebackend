@@ -38,7 +38,7 @@ class PlayerProfileServiceClient {
             }
         }
 
-    @Cacheable("displayNames")
+    @Cacheable("displayNames", sync = true)
     suspend fun getDisplayName(id: Long): String =
         client
             .get("getPlayerDisplayName") {

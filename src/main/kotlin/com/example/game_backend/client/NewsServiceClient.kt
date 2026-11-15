@@ -41,7 +41,7 @@ class NewsServiceClient {
             }
         }
 
-    @Cacheable("news")
+    @Cacheable("news", sync = true)
     suspend fun getNews(count: Int): List<NewsDto> =
         client
             .get("getNews") {

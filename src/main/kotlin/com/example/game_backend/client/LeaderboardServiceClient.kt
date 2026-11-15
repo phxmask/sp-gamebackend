@@ -67,7 +67,7 @@ class LeaderboardServiceClient {
                 it.score
             } // As per the assigment, its not clear if this list is sorted already, this could be dropped based on the API specification
 
-    @Cacheable("topLeaderboard")
+    @Cacheable("topLeaderboard", sync = true)
     suspend fun getTopLeaderboard(count: Long): List<LeaderboardDto> = getLeaderboard(1, count)
 
     // This endpoint is not defined in the assignment
