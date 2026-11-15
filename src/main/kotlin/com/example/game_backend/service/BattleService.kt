@@ -8,6 +8,7 @@ import com.example.game_backend.client.LeaderboardServiceClient
 import com.example.game_backend.domain.PlayerState
 import com.example.game_backend.domain.PlayerStateStore
 import com.example.game_backend.domain.toUtcDate
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import kotlin.time.Clock
@@ -84,7 +85,12 @@ class BattleService(
         if (completedToday != null) {
             // Since updating the player score is not defined in the assignment, I preferred not to assume that it returns
             // the new leaderboard position, so we need to update it first then request the new position
-            leaderboardClient.updatePlayerScore(playerId, completedToday.dailyScore)
+            // In case of failures we just log an error, since score is client side in this setup (bad!!) and the player will
+            // just report it again next time
+            Either
+                .catch { leaderboardClient.updatePlayerScore(playerId, completedToday.dailyScore) }
+                .onLeft { log.error("Failed to update leaderboard score for player {}: {}", playerId, it.message) }
+
             return leaderboardClient.getLeaderboardPosition(completedToday.dailyScore).right()
         }
 
@@ -117,5 +123,9 @@ class BattleService(
             }
         }
         return completed
+    }
+
+    companion object {
+        private val log = LoggerFactory.getLogger(BattleService::class.java)
     }
 }
