@@ -10,6 +10,8 @@ import org.springframework.context.annotation.Configuration
 @EnableCaching
 class CacheConfig {
     @Bean
-    fun asyncCacheModeCustomizer(): CacheManagerCustomizer<CaffeineCacheManager> =
-        CacheManagerCustomizer { it.setAsyncCacheMode(true) }
+    fun asyncCacheModeCustomizer(): CacheManagerCustomizer<CaffeineCacheManager> = CacheManagerCustomizer {
+        // TODO: Set up custom caches so that some of them have a longer TTL
+        it.setAsyncCacheMode(true)
+    }
 }
