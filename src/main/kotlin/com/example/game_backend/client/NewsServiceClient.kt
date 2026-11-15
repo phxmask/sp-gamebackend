@@ -9,6 +9,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.http.appendPathSegments
 import io.ktor.serialization.kotlinx.json.json
+import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
 
 @Component
@@ -24,6 +25,7 @@ class NewsServiceClient {
             }
         }
 
+    @Cacheable("news")
     suspend fun getNews(count: Int): List<NewsDto> =
         client
             .get("getNews") {
