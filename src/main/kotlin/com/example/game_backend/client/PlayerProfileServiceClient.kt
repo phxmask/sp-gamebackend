@@ -30,5 +30,6 @@ class PlayerProfileServiceClient {
                 url {
                     appendPathSegments(id.toString())
                 }
-            }.body<DisplayNameDto>().name
+            }.body<DisplayNameDto>()
+            .name
 }

@@ -33,4 +33,3 @@ enum class NewsTypeDto {
     GIFT,
     SYSTEM,
 }
-

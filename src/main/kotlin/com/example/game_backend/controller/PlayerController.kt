@@ -8,10 +8,10 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 class PlayerController(
-    private val playerStateService: PlayerStateService
+    private val playerStateService: PlayerStateService,
 ) {
     @GetMapping("/getPlayer/{id}")
-    suspend fun getPlayerState(@PathVariable id: Long): PlayerStateDto {
-        return playerStateService.getPlayerState(id)
-    }
+    suspend fun getPlayerState(
+        @PathVariable id: Long,
+    ): PlayerStateDto = playerStateService.getPlayerState(id)
 }

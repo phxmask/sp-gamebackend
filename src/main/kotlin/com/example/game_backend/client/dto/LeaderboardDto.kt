@@ -14,7 +14,10 @@ data class LeaderboardPositionDto(
     val position: Long,
 )
 
-fun LeaderboardDto.toLeaderboardEntryDto(position: Long, name: String): LeaderboardEntryDto =
+fun LeaderboardDto.toLeaderboardEntryDto(
+    position: Long,
+    name: String,
+): LeaderboardEntryDto =
     LeaderboardEntryDto(
         playerId = playerId,
         position = position,
