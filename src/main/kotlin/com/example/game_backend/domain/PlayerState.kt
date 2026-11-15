@@ -3,14 +3,16 @@ package com.example.game_backend.domain
 import org.springframework.stereotype.Component
 import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Clock
 import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
 data class PlayerState(
-    val startedBattles: Set<Long> = emptySet(),
+    val startedBattles: Set<Uuid> = emptySet(),
     val dailyBattleStats: Map<Long, Int> = emptyMap(), // (LevelId, count)
     val dailyScore: Int = 0,
+    val lastActiveTime: Instant = Clock.System.now(),
 )
-
 
 // TODO: Temporary, move to redis later?
 @Component

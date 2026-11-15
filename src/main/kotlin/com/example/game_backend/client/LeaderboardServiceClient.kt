@@ -8,6 +8,7 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
+import io.ktor.client.request.post
 import io.ktor.http.appendPathSegments
 import io.ktor.serialization.kotlinx.json.json
 import org.springframework.stereotype.Component
@@ -47,4 +48,10 @@ class LeaderboardServiceClient {
             .sortedByDescending {
                 it.score
             } // As per the assigment, its not clear if this list is sorted already, this could be dropped based on the API specification
+
+    // This endpoint is not defined in the assignment
+    suspend fun updatePlayerScore(playerId: Long, score: Int): Long =
+        client.post("updateLeaderboard") {
+            url { appendPathSegments(playerId.toString(), score.toString()) }
+        }.body<LeaderboardPositionDto>().position
 }

@@ -11,15 +11,24 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 sealed interface StartBattleError {
-    data class UnknownLevel(val levelId: Long) : StartBattleError
-    data class MaxAttemptsReached(val levelId: Long, val maxDailyAttempts: Int) : StartBattleError
+    data class UnknownLevel(
+        val levelId: Long,
+    ) : StartBattleError
+
+    data class MaxAttemptsReached(
+        val levelId: Long,
+        val maxDailyAttempts: Int,
+    ) : StartBattleError
 }
 
 sealed interface CompleteBattleError {
-    data class BattleNotStarted(val battleId: Long) : CompleteBattleError
+    data class BattleNotStarted(
+        val battleId: Uuid,
+    ) : CompleteBattleError
 }
 
 @Service
@@ -28,29 +37,73 @@ class BattleService(
     val leaderboardClient: LeaderboardServiceClient,
     val configClient: ConfigServiceClient,
 ) {
-    suspend fun startBattle(playerId: Long, levelId: Long): Either<StartBattleError, Uuid> {
-        val level = configClient.getConfig().levels.find { levelId == it.id }
-            ?: return StartBattleError.UnknownLevel(levelId).left()
+    suspend fun startBattle(
+        playerId: Long,
+        levelId: Long,
+    ): Either<StartBattleError, Uuid> {
+        val level =
+            configClient.getConfig().levels.find { levelId == it.id }
+                ?: return StartBattleError.UnknownLevel(levelId).left()
+        val battleUuid = Uuid.random()
+        val now = Clock.System.now()
+        var limitReached = false
 
-        val state = playerState.players.getOrDefault(playerId to LocalDate.now(), PlayerState())
-        val levelStartCount = state.dailyBattleStats.getOrDefault(levelId, 0)
-        if (levelStartCount >= level.maxDailyAttempts) {
-            return StartBattleError.MaxAttemptsReached(levelId, level.maxDailyAttempts).left()
+        playerState.players.compute(playerId to LocalDate.now()) { _, v ->
+            val currentState = v ?: PlayerState()
+            val levelStartCount = currentState.dailyBattleStats.getOrDefault(levelId, 0)
+            if (levelStartCount >= level.maxDailyAttempts) {
+                limitReached = true
+                v
+            } else {
+                currentState.copy(
+                    lastActiveTime = now,
+                    startedBattles = currentState.startedBattles + battleUuid,
+                    dailyBattleStats = currentState.dailyBattleStats + (levelId to levelStartCount + 1),
+                )
+            }
         }
 
-        return Uuid.random().right()
+        if (limitReached) {
+            return StartBattleError.MaxAttemptsReached(levelId, level.maxDailyAttempts).left()
+        }
+        return battleUuid.right()
     }
 
-    suspend fun completeBattle(playerId: Long, battleId: Long, score: Int): Either<CompleteBattleError, Long> {
-        val state = playerState.players.getOrDefault(playerId to LocalDate.now(), PlayerState())
-        if (!state.startedBattles.contains(battleId)) {
+    suspend fun completeBattle(
+        playerId: Long,
+        battleId: Uuid,
+        score: Int,
+    ): Either<CompleteBattleError, Long> {
+        val now = Clock.System.now()
+        var notStarted = false
+
+        val updated =
+            playerState.players.compute(playerId to LocalDate.now()) { _, v ->
+                if (v == null || battleId !in v.startedBattles) {
+                    notStarted = true
+                    v
+                } else {
+                    v.copy(
+                        startedBattles = v.startedBattles - battleId,
+                        dailyScore = v.dailyScore + score,
+                        lastActiveTime = now,
+                    )
+                }
+            }
+
+        if (notStarted || updated == null) {
             return CompleteBattleError.BattleNotStarted(battleId).left()
         }
 
         return coroutineScope {
             val updateLeaderboard =
-                async { leaderboardClient.getLeaderboardPosition(1) } // TODO: Different call, since update is not covered in specs
-            val position = async { leaderboardClient.getLeaderboardPosition(score) }
+                async {
+                    leaderboardClient.updatePlayerScore(
+                        playerId,
+                        updated.dailyScore
+                    )
+                }
+            val position = async { leaderboardClient.getLeaderboardPosition(updated.dailyScore) }
 
             updateLeaderboard.await()
             position.await().right()
