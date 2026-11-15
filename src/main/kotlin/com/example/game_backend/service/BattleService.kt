@@ -9,7 +9,9 @@ import com.example.game_backend.domain.PlayerState
 import com.example.game_backend.domain.PlayerStateStore
 import com.example.game_backend.domain.toUtcDate
 import org.springframework.stereotype.Service
+import java.time.LocalDate
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 sealed interface StartBattleError {
@@ -73,29 +75,47 @@ class BattleService(
         score: Int,
     ): Either<CompleteBattleError, Long> {
         val now = Clock.System.now()
-        var notStarted = false
+        val today = now.toUtcDate()
 
-        val updated =
-            playerState.players.compute(playerId to now.toUtcDate()) { _, v ->
-                if (v == null || battleId !in v.startedBattles) {
-                    notStarted = true
-                    v
-                } else {
-                    v.copy(
+        // Since the player state is stored per day (to simplify cleanup later) we need to validate
+        // if the battle happened today or yesterday, mostly to handle battles happening around midnight UTC
+        // Anything older than that is considered expired
+        val completedToday = completeStartedBattle(playerId, today, battleId, score, now)
+        if (completedToday != null) {
+            // Since updating the player score is not defined in the assignment, I preferred not to assume that it returns
+            // the new leaderboard position, so we need to update it first then request the new position
+            leaderboardClient.updatePlayerScore(playerId, completedToday.dailyScore)
+            return leaderboardClient.getLeaderboardPosition(completedToday.dailyScore).right()
+        }
+
+        completeStartedBattle(playerId, today.minusDays(1), battleId, score, now)
+            ?: return CompleteBattleError.BattleNotStarted(battleId).left()
+
+        // We always get today's score for the leaderboard position, as battles from a previous day are not scored 
+        val todayScore = playerState.players[playerId to today]?.dailyScore ?: 0
+        return leaderboardClient.getLeaderboardPosition(todayScore).right()
+    }
+
+    private fun completeStartedBattle(
+        playerId: Long,
+        day: LocalDate,
+        battleId: Uuid,
+        score: Int,
+        now: Instant,
+    ): PlayerState? {
+        var completed: PlayerState? = null
+        playerState.players.computeIfPresent(playerId to day) { _, v ->
+            if (battleId in v.startedBattles) {
+                v
+                    .copy(
                         startedBattles = v.startedBattles - battleId,
                         dailyScore = maxOf(0, v.dailyScore + score),
                         lastActiveTime = now,
-                    )
-                }
+                    ).also { completed = it }
+            } else {
+                v
             }
-
-        if (notStarted || updated == null) {
-            return CompleteBattleError.BattleNotStarted(battleId).left()
         }
-
-        // Since updating the player score is not defined in the assignment, I preferred not to assume that it returns
-        // the new leaderboard position, so we need to update it first then request the new position
-        leaderboardClient.updatePlayerScore(playerId, updated.dailyScore)
-        return leaderboardClient.getLeaderboardPosition(updated.dailyScore).right()
+        return completed
     }
 }
