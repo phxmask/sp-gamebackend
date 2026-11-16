@@ -8,6 +8,8 @@ import com.example.game_backend.client.LeaderboardServiceClient
 import com.example.game_backend.domain.PlayerState
 import com.example.game_backend.domain.toUtcDate
 import com.example.game_backend.persistence.PlayerStateLMDBStore
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
@@ -84,15 +86,20 @@ class BattleService(
         val completedToday = completeStartedBattle(playerId, today, battleId, score, now)
         if (completedToday != null) {
             // Since updating the player score is not defined in the assignment, I preferred not to assume that it returns
-            // the new leaderboard position, so we need to update it first then request the new position
+            // the new leaderboard position, so we need both to update it and to request the new position
+            // The position is looked up by score, so it doesn't depend on the update and both are done in parallel
             // In case of failures we just log an error, since score is client side in this setup (bad!!) and the player will
             // just report it again next time
             // TODO: Resend failed score updates, since otherwise players might lose score in their last battle of the day
-            Either
-                .catch { leaderboardClient.updatePlayerScore(playerId, completedToday.dailyScore) }
-                .onLeft { log.error("Failed to update leaderboard score for player {}: {}", playerId, it.message) }
+            return coroutineScope {
+                launch {
+                    Either
+                        .catch { leaderboardClient.updatePlayerScore(playerId, completedToday.dailyScore) }
+                        .onLeft { log.error("Failed to update leaderboard score for player {}: {}", playerId, it.message) }
+                }
 
-            return getLeaderboardPositionOrNull(playerId, completedToday.dailyScore).right()
+                getLeaderboardPositionOrNull(playerId, completedToday.dailyScore).right()
+            }
         }
 
         completeStartedBattle(playerId, today.minusDays(1), battleId, score, now)
