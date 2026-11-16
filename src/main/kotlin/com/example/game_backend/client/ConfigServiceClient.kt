@@ -23,8 +23,10 @@ import kotlin.random.Random
 
 @Component
 class ConfigServiceClient {
+    private val engine = ConfigServiceMock().engine
+
     private val client =
-        HttpClient(ConfigServiceMock().engine) {
+        HttpClient(engine) {
             expectSuccess = true
             install(HttpRequestRetry) {
                 maxRetries = 1
@@ -45,7 +47,7 @@ class ConfigServiceClient {
             install(DefaultRequest) {
                 url("http://localhost:8083/")
             }
-        }
+        }.also { it.clearHistoryAfterEachCall(engine) }
 
     @Cacheable("config", sync = true)
     suspend fun getConfig(): ConfigDto =

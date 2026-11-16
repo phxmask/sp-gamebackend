@@ -29,8 +29,10 @@ import kotlin.random.Random
 
 @Component
 class LeaderboardServiceClient {
+    private val engine = LeaderboardServiceMock().engine
+
     private val client =
-        HttpClient(LeaderboardServiceMock().engine) {
+        HttpClient(engine) {
             expectSuccess = true
             install(HttpRequestRetry) {
                 maxRetries = 1
@@ -52,7 +54,7 @@ class LeaderboardServiceClient {
             install(DefaultRequest) {
                 url("http://localhost:8083/")
             }
-        }
+        }.also { it.clearHistoryAfterEachCall(engine) }
 
     suspend fun getLeaderboardPosition(score: Int): Long =
         client

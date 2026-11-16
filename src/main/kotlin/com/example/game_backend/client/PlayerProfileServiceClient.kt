@@ -24,8 +24,10 @@ import kotlin.random.Random
 
 @Component
 class PlayerProfileServiceClient {
+    private val engine = PlayerProfileServiceMock().engine
+
     private val client =
-        HttpClient(PlayerProfileServiceMock().engine) {
+        HttpClient(engine) {
             expectSuccess = true
             install(HttpRequestRetry) {
                 maxRetries = 1
@@ -47,7 +49,7 @@ class PlayerProfileServiceClient {
             install(DefaultRequest) {
                 url("http://localhost:8083/")
             }
-        }
+        }.also { it.clearHistoryAfterEachCall(engine) }
 
     @Cacheable("displayNames", sync = true)
     suspend fun getDisplayName(id: Long): String =

@@ -28,8 +28,10 @@ import kotlin.time.Duration.Companion.hours
 
 @Component
 class NewsServiceClient {
+    private val engine = NewsServiceMock().engine
+
     private val client =
-        HttpClient(NewsServiceMock().engine) {
+        HttpClient(engine) {
             expectSuccess = true
             install(HttpRequestRetry) {
                 maxRetries = 1
@@ -51,7 +53,7 @@ class NewsServiceClient {
             install(DefaultRequest) {
                 url("http://localhost:8083/")
             }
-        }
+        }.also { it.clearHistoryAfterEachCall(engine) }
 
     @Cacheable("news", sync = true)
     suspend fun getNews(count: Int): List<NewsDto> {
