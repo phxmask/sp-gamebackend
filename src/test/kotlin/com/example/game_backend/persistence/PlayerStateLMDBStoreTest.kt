@@ -1,5 +1,6 @@
 package com.example.game_backend.persistence
 
+import com.example.game_backend.domain.ActiveBattle
 import com.example.game_backend.domain.PlayerState
 import com.example.game_backend.domain.toUtcDate
 import kotlinx.coroutines.async
@@ -168,7 +169,7 @@ class PlayerStateLMDBStoreTest {
 
         private val STATE =
             PlayerState(
-                startedBattles = setOf(Uuid.parse("3f2b8c1e-5d4a-4e7b-9c6f-1a2b3c4d5e6f")),
+                activeBattle = ActiveBattle(Uuid.parse("3f2b8c1e-5d4a-4e7b-9c6f-1a2b3c4d5e6f"), levelId = 1),
                 dailyBattleStats = mapOf(1L to 2, 3L to 1),
                 dailyScore = 120,
                 lastActiveTime = Instant.parse("2026-11-16T10:00:00Z"),

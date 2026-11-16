@@ -32,12 +32,26 @@ class BattleControllerTest {
 
     @Test
     fun `starts a battle and returns its id`() {
-        coEvery { battleService.startBattle(PLAYER_ID, LEVEL_ID) } returns BATTLE_ID.right()
+        coEvery { battleService.startBattle(PLAYER_ID, LEVEL_ID, null) } returns BATTLE_ID.right()
 
         assertThat(mvc.post().uri("/startBattle/{playerId}/levelId/{levelId}", PLAYER_ID, LEVEL_ID))
             .hasStatusOk()
             .hasBodyTextEqualTo(BATTLE_ID.toString())
-        coVerify(exactly = 1) { battleService.startBattle(PLAYER_ID, LEVEL_ID) }
+        coVerify(exactly = 1) { battleService.startBattle(PLAYER_ID, LEVEL_ID, null) }
+    }
+
+    @Test
+    fun `passes the idempotency key to the battle service`() {
+        coEvery { battleService.startBattle(PLAYER_ID, LEVEL_ID, IDEMPOTENCY_KEY) } returns BATTLE_ID.right()
+
+        assertThat(
+            mvc
+                .post()
+                .uri("/startBattle/{playerId}/levelId/{levelId}", PLAYER_ID, LEVEL_ID)
+                .header("Idempotency-Key", IDEMPOTENCY_KEY),
+        ).hasStatusOk()
+            .hasBodyTextEqualTo(BATTLE_ID.toString())
+        coVerify(exactly = 1) { battleService.startBattle(PLAYER_ID, LEVEL_ID, IDEMPOTENCY_KEY) }
     }
 
     @ParameterizedTest(name = "{0}")
@@ -47,7 +61,7 @@ class BattleControllerTest {
         status: HttpStatus,
         detail: String,
     ) {
-        coEvery { battleService.startBattle(PLAYER_ID, LEVEL_ID) } returns error.left()
+        coEvery { battleService.startBattle(PLAYER_ID, LEVEL_ID, null) } returns error.left()
 
         assertThat(mvc.post().uri("/startBattle/{playerId}/levelId/{levelId}", PLAYER_ID, LEVEL_ID))
             .hasStatus(status)
@@ -59,7 +73,7 @@ class BattleControllerTest {
     @ValueSource(strings = ["/startBattle/abc/levelId/1", "/startBattle/42/levelId/abc"])
     fun `rejects start battle ids that aren't numbers`(uri: String) {
         assertThat(mvc.post().uri(uri)).hasStatus(HttpStatus.BAD_REQUEST)
-        coVerify(exactly = 0) { battleService.startBattle(any(), any()) }
+        coVerify(exactly = 0) { battleService.startBattle(any(), any(), any()) }
     }
 
     @ParameterizedTest(name = "position {0}")
@@ -127,6 +141,7 @@ class BattleControllerTest {
     companion object {
         private const val PLAYER_ID = 42L
         private const val LEVEL_ID = 1L
+        private const val IDEMPOTENCY_KEY = "start-request-1"
         private const val COMPLETE_BATTLE_URI = "/completeBattle/{playerId}/battleId/{battleId}/score/{score}"
         private val BATTLE_ID = Uuid.parse("3f2b8c1e-5d4a-4e7b-9c6f-1a2b3c4d5e6f")
 

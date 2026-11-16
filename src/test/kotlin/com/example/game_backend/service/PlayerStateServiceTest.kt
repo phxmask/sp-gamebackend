@@ -12,6 +12,7 @@ import com.example.game_backend.client.dto.NewsTypeDto
 import com.example.game_backend.controller.dto.LeaderboardEntryDto
 import com.example.game_backend.controller.dto.LevelDto
 import com.example.game_backend.controller.dto.NewsResponseDto
+import com.example.game_backend.domain.ActiveBattle
 import com.example.game_backend.domain.PlayerState
 import com.example.game_backend.persistence.PlayerStateLMDBStore
 import io.mockk.coEvery
@@ -271,7 +272,7 @@ class PlayerStateServiceTest {
                 Named.of(
                     "existing player",
                     PlayerState(
-                        startedBattles = setOf(Uuid.random()),
+                        activeBattle = ActiveBattle(Uuid.random(), levelId = 1),
                         dailyBattleStats = mapOf(1L to 2),
                         dailyScore = 50,
                         lastActiveTime = Instant.fromEpochSeconds(0),

@@ -9,8 +9,15 @@ import kotlin.time.toJavaInstant
 import kotlin.uuid.Uuid
 
 @Serializable
+data class ActiveBattle(
+    val id: Uuid,
+    val levelId: Long,
+    val idempotencyKey: String? = null,
+)
+
+@Serializable
 data class PlayerState(
-    val startedBattles: Set<Uuid> = emptySet(),
+    val activeBattle: ActiveBattle? = null,
     val dailyBattleStats: Map<Long, Int> = emptyMap(), // (LevelId, count)
     val dailyScore: Int = 0,
     val lastActiveTime: Instant = Clock.System.now(),

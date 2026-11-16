@@ -5,6 +5,7 @@ import arrow.core.left
 import arrow.core.right
 import com.example.game_backend.client.ConfigServiceClient
 import com.example.game_backend.client.LeaderboardServiceClient
+import com.example.game_backend.domain.ActiveBattle
 import com.example.game_backend.domain.PlayerState
 import com.example.game_backend.domain.toUtcDate
 import com.example.game_backend.persistence.PlayerStateLMDBStore
@@ -43,34 +44,38 @@ class BattleService(
     suspend fun startBattle(
         playerId: Long,
         levelId: Long,
+        idempotencyKey: String? = null,
     ): Either<StartBattleError, Uuid> {
         val level =
             configClient.getConfig().levels.find { levelId == it.id }
                 ?: return StartBattleError.UnknownLevel(levelId).left()
-        val battleUuid = Uuid.random()
         val now = Clock.System.now()
-        var limitReached = false
+        val newBattle = ActiveBattle(Uuid.random(), levelId, idempotencyKey)
 
-        playerState.compute(playerId, now.toUtcDate()) { v ->
-            val currentState = v ?: PlayerState()
-            val levelStartCount = currentState.dailyBattleStats.getOrDefault(levelId, 0)
-            if (levelStartCount >= level.maxDailyAttempts) {
-                limitReached = true
-                null
-            } else {
-                currentState.copy(
-                    lastActiveTime = now,
-                    startedBattles = currentState.startedBattles + battleUuid,
-                    dailyBattleStats = currentState.dailyBattleStats + (levelId to levelStartCount + 1),
-                )
+        val state =
+            playerState.compute(playerId, now.toUtcDate()) { v ->
+                val currentState = (v ?: PlayerState()).copy(lastActiveTime = now)
+                val levelStartCount = currentState.dailyBattleStats.getOrDefault(levelId, 0)
+                if (currentState.activeBattle?.isRetryOf(newBattle) == true || levelStartCount >= level.maxDailyAttempts) {
+                    currentState
+                } else {
+                    currentState.copy(
+                        activeBattle = newBattle,
+                        dailyBattleStats = currentState.dailyBattleStats + (levelId to levelStartCount + 1),
+                    )
+                }
             }
-        }
 
-        if (limitReached) {
-            return StartBattleError.MaxAttemptsReached(levelId, level.maxDailyAttempts).left()
-        }
-        return battleUuid.right()
+        return state
+            ?.activeBattle
+            ?.takeIf { it == newBattle || it.isRetryOf(newBattle) }
+            ?.id
+            ?.right()
+            ?: StartBattleError.MaxAttemptsReached(levelId, level.maxDailyAttempts).left()
     }
+
+    private fun ActiveBattle.isRetryOf(other: ActiveBattle): Boolean =
+        idempotencyKey != null && idempotencyKey == other.idempotencyKey && levelId == other.levelId
 
     suspend fun completeBattle(
         playerId: Long,
@@ -90,12 +95,19 @@ class BattleService(
             // The position is looked up by score, so it doesn't depend on the update and both are done in parallel
             // In case of failures we just log an error, since score is client side in this setup (bad!!) and the player will
             // just report it again next time
+
             // TODO: Resend failed score updates, since otherwise players might lose score in their last battle of the day
             return coroutineScope {
                 launch {
                     Either
                         .catch { leaderboardClient.updatePlayerScore(playerId, completedToday.dailyScore) }
-                        .onLeft { log.error("Failed to update leaderboard score for player {}: {}", playerId, it.message) }
+                        .onLeft {
+                            log.error(
+                                "Failed to update leaderboard score for player {}: {}",
+                                playerId,
+                                it.message,
+                            )
+                        }
                 }
 
                 getLeaderboardPositionOrNull(playerId, completedToday.dailyScore).right()
@@ -133,10 +145,10 @@ class BattleService(
     ): PlayerState? {
         var completed: PlayerState? = null
         playerState.compute(playerId, day) { v ->
-            if (v != null && battleId in v.startedBattles) {
+            if (v != null && v.activeBattle?.id == battleId) {
                 v
                     .copy(
-                        startedBattles = v.startedBattles - battleId,
+                        activeBattle = null,
                         dailyScore = maxOf(0, v.dailyScore + score),
                         lastActiveTime = now,
                     ).also { completed = it }

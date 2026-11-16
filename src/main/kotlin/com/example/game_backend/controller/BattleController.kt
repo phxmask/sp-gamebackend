@@ -11,11 +11,13 @@ import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RestController
 import kotlin.uuid.Uuid
 
 private const val MIN_SCORE = -100L
 private const val MAX_SCORE = 100L
+private const val IDEMPOTENCY_KEY_HEADER = "Idempotency-Key"
 
 @RestController
 class BattleController(
@@ -25,8 +27,9 @@ class BattleController(
     suspend fun startBattle(
         @PathVariable playerId: Long,
         @PathVariable levelId: Long,
+        @RequestHeader(IDEMPOTENCY_KEY_HEADER, required = false) idempotencyKey: String?,
     ): ResponseEntity<*> =
-        battleService.startBattle(playerId, levelId).fold(
+        battleService.startBattle(playerId, levelId, idempotencyKey).fold(
             ifLeft = { it.toResponse() },
             ifRight = { ResponseEntity.ok(it.toString()) },
         )
