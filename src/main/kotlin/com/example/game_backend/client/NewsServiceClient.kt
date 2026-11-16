@@ -23,7 +23,6 @@ import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
-import kotlin.random.Random
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
@@ -90,8 +89,8 @@ private class NewsServiceMock {
 
     val engine =
         MockEngine { request ->
-            delay(latencyMillis())
-            if (Random.nextInt(100) < FAILURE_CHANCE_PERCENTAGE) {
+            delay(ServiceMockBehavior.latencyMillis())
+            if (ServiceMockBehavior.shouldFail()) {
                 return@MockEngine respondError(HttpStatusCode.ServiceUnavailable)
             }
             val segments =
@@ -113,20 +112,7 @@ private class NewsServiceMock {
             }
         }
 
-    private fun latencyMillis(): Long =
-        if (Random.nextInt(100) < SLOW_RESPONSE_CHANCE_PERCENTAGE) {
-            SLOW_RESPONSE_TIME_MILLIS
-        } else {
-            Random.nextLong(MIN_RESPONSE_TIME_MILLIS, MAX_RESPONSE_TIME_MILLIS + 1)
-        }
-
     companion object {
-        const val SLOW_RESPONSE_CHANCE_PERCENTAGE = 5
-        const val MIN_RESPONSE_TIME_MILLIS = 30L
-        const val MAX_RESPONSE_TIME_MILLIS = 50L
-        const val SLOW_RESPONSE_TIME_MILLIS = 150L
-        const val FAILURE_CHANCE_PERCENTAGE = 2
-
         private val MESSAGES =
             listOf(
                 NewsTypeDto.EVENT to "Double score weekend has started",

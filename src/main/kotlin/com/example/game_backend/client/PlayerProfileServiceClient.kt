@@ -70,8 +70,8 @@ class PlayerProfileServiceClient {
 private class PlayerProfileServiceMock {
     val engine =
         MockEngine { request ->
-            delay(latencyMillis())
-            if (Random.nextInt(100) < FAILURE_CHANCE_PERCENTAGE) {
+            delay(ServiceMockBehavior.latencyMillis())
+            if (ServiceMockBehavior.shouldFail()) {
                 return@MockEngine respondError(HttpStatusCode.ServiceUnavailable)
             }
             val segments =
@@ -95,19 +95,7 @@ private class PlayerProfileServiceMock {
 
     private fun displayName(): String = "${MOCK_NAME_POOL_ONE.random()}${MOCK_NAME_POOL_TWO.random()}${Random.nextInt(1000)}"
 
-    private fun latencyMillis(): Long =
-        if (Random.nextInt(100) < SLOW_RESPONSE_CHANCE_PERCENTAGE) {
-            SLOW_RESPONSE_TIME_MILLIS
-        } else {
-            Random.nextLong(MIN_RESPONSE_TIME_MILLIS, MAX_RESPONSE_TIME_MILLIS + 1)
-        }
-
     companion object {
-        const val SLOW_RESPONSE_CHANCE_PERCENTAGE = 5
-        const val MIN_RESPONSE_TIME_MILLIS = 30L
-        const val MAX_RESPONSE_TIME_MILLIS = 50L
-        const val SLOW_RESPONSE_TIME_MILLIS = 150L
-        const val FAILURE_CHANCE_PERCENTAGE = 2
         private val MOCK_NAME_POOL_ONE =
             listOf("Iron", "Grim", "Void", "Blood", "Zealous", "Eternal", "Fallen", "Sacred", "Ashen", "Relentless")
         private val MOCK_NAME_POOL_TWO =
