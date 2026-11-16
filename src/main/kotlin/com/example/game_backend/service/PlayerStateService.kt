@@ -62,7 +62,7 @@ class PlayerStateService(
 
     private suspend fun getNews(): List<NewsResponseDto> =
         Either
-            .catch { newsClient.getNews(5).map { it.toNewsResponse() } }
+            .catch { newsClient.getNews(NEWS_COUNT).map { it.toNewsResponse() } }
             .onLeft { log.warn("Failed to fetch news, returning no news: {}", it.message) }
             .getOrElse { emptyList() }
 
@@ -88,7 +88,11 @@ class PlayerStateService(
 
     private suspend fun getTopEntries(): List<Pair<LeaderboardDto, Long>> =
         Either
-            .catch { leaderboardClient.getTopLeaderboard(10).mapIndexed { index, entry -> entry to 1L + index } }
+            .catch {
+                leaderboardClient
+                    .getTopLeaderboard(TOP_LEADERBOARD_COUNT)
+                    .mapIndexed { index, entry -> entry to 1L + index }
+            }
             .onLeft { log.warn("Failed to fetch top leaderboard, returning no entries: {}", it.message) }
             .getOrElse { emptyList() }
 
@@ -139,5 +143,7 @@ class PlayerStateService(
 
     companion object {
         private val log = LoggerFactory.getLogger(PlayerStateService::class.java)
+        private const val NEWS_COUNT = 5
+        private const val TOP_LEADERBOARD_COUNT = 10L
     }
 }

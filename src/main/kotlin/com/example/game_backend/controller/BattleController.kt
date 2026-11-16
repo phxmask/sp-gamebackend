@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import kotlin.uuid.Uuid
 
+private const val MIN_SCORE = -100L
+private const val MAX_SCORE = 100L
+
 @RestController
 class BattleController(
     private val battleService: BattleService,
@@ -33,8 +36,8 @@ class BattleController(
         @PathVariable playerId: Long,
         @PathVariable battleId: String,
         @PathVariable
-        @Min(-100, message = "The minimum score is -100")
-        @Max(100, message = "The maximum score is 100")
+        @Min(MIN_SCORE, message = "The minimum score is $MIN_SCORE")
+        @Max(MAX_SCORE, message = "The maximum score is $MAX_SCORE")
         score: Int,
     ): ResponseEntity<*> {
         val parsedBattleId =
