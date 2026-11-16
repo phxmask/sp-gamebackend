@@ -10,6 +10,7 @@ import lmdb.Dbi
 import lmdb.DbiOption
 import lmdb.Env
 import lmdb.EnvOption
+import lmdb.LmdbException
 import lmdb.TxnOption
 import lmdb.first
 import lmdb.get
@@ -133,8 +134,8 @@ class PlayerStateLMDBStore(
             if (closed) return
             try {
                 env.sync(true)
-            } catch (e: Exception) {
-                log.error("Failed to sync LMDB to disk: {}", e.message)
+            } catch (e: LmdbException) {
+                log.error("Failed to sync LMDB to disk", e)
             }
         }
     }
