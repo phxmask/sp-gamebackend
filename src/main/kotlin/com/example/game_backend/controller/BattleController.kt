@@ -33,8 +33,8 @@ class BattleController(
         @PathVariable playerId: Long,
         @PathVariable battleId: String,
         @PathVariable
-        @Min(-100, message = "Score must be between -100 and 100")
-        @Max(100, message = "Score must be between -100 and 100")
+        @Min(-100, message = "The minimum score is -100")
+        @Max(100, message = "The maximum score is 100")
         score: Int,
     ): ResponseEntity<*> {
         val parsedBattleId =

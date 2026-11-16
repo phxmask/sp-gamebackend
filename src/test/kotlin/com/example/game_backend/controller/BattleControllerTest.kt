@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Named
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.annotation.Autowired
@@ -98,22 +99,29 @@ class BattleControllerTest {
         coVerify(exactly = 0) { battleService.completeBattle(any(), any(), any()) }
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = [-101, 101])
-    fun `rejects a score outside of -100 to 100`(score: Int) {
+    @ParameterizedTest(name = "score {0}")
+    @CsvSource(
+        "-101, The minimum score is -100",
+        "101, The maximum score is 100",
+    )
+    fun `rejects a score over the limits`(
+        score: Int,
+        detail: String,
+    ) {
         assertThat(mvc.post().uri(COMPLETE_BATTLE_URI, PLAYER_ID, BATTLE_ID, score))
             .hasStatus(HttpStatus.BAD_REQUEST)
             .bodyJson()
-            .isLenientlyEqualTo("""{ "status": 400, "detail": "Score must be between -100 and 100" }""")
+            .isLenientlyEqualTo("""{ "status": 400, "detail": "$detail" }""")
         coVerify(exactly = 0) { battleService.completeBattle(any(), any(), any()) }
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = [-100, 100])
-    fun `accepts the score limits`(score: Int) {
+    @ParameterizedTest(name = "score {0}")
+    @ValueSource(ints = [-100, -99, 0, 99, 100])
+    fun `accepts a score within the limits`(score: Int) {
         coEvery { battleService.completeBattle(PLAYER_ID, BATTLE_ID, score) } returns 1L.right()
 
         assertThat(mvc.post().uri(COMPLETE_BATTLE_URI, PLAYER_ID, BATTLE_ID, score)).hasStatusOk()
+        coVerify(exactly = 1) { battleService.completeBattle(PLAYER_ID, BATTLE_ID, score) }
     }
 
     companion object {
