@@ -40,6 +40,7 @@ dependencies {
     implementation("io.github.crowded-libs:kotlin-lmdb-jvm:0.5.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.13.0")
     implementation("io.arrow-kt:arrow-core:2.3.0")
+    implementation("io.arrow-kt:arrow-resilience-ktor-client:2.2.2.1")
     testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webclient-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")

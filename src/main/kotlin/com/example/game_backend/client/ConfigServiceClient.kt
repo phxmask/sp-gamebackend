@@ -1,5 +1,6 @@
 package com.example.game_backend.client
 
+import arrow.resilience.ktor.client.HttpCircuitBreaker
 import com.example.game_backend.client.dto.ConfigDto
 import io.ktor.client.*
 import io.ktor.client.call.body
@@ -20,6 +21,7 @@ import kotlinx.serialization.json.Json
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.seconds
 
 @Component
 class ConfigServiceClient {
@@ -28,6 +30,9 @@ class ConfigServiceClient {
     private val client =
         HttpClient(engine) {
             expectSuccess = true
+            install(HttpCircuitBreaker) {
+                circuitBreaker(resetTimeout = 5.seconds, maxFailures = 5)
+            }
             install(HttpRequestRetry) {
                 maxRetries = 1
                 delayMillis { 0L }

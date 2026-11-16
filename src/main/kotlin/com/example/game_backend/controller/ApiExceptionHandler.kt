@@ -1,5 +1,6 @@
 package com.example.game_backend.controller
 
+import arrow.resilience.CircuitBreaker
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.ResponseException
@@ -44,6 +45,12 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     @ExceptionHandler(ResponseException::class, ConnectException::class)
     fun handleDownstreamFailure(ex: Exception): ProblemDetail {
         log.warn("Downstream service failed", ex)
+        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, "A downstream service is unavailable")
+    }
+
+    @ExceptionHandler(CircuitBreaker.ExecutionRejected::class)
+    fun handleCircuitBreakerRejection(ex: CircuitBreaker.ExecutionRejected): ProblemDetail {
+        log.warn("Downstream call rejected by circuit breaker: {}", ex.reason)
         return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, "A downstream service is unavailable")
     }
 }

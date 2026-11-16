@@ -1,5 +1,6 @@
 package com.example.game_backend.controller
 
+import arrow.resilience.CircuitBreaker
 import com.example.game_backend.controller.dto.LeaderboardEntryDto
 import com.example.game_backend.controller.dto.LevelDto
 import com.example.game_backend.controller.dto.NewsResponseDto
@@ -143,6 +144,12 @@ class PlayerControllerTest {
                     UNAVAILABLE,
                 ),
                 arguments("connection refused", ConnectException(), HttpStatus.SERVICE_UNAVAILABLE, UNAVAILABLE),
+                arguments(
+                    "circuit breaker open",
+                    CircuitBreaker.ExecutionRejected("circuit breaker is open", mockk(relaxed = true)),
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    UNAVAILABLE,
+                ),
                 arguments(
                     "request timeout",
                     HttpRequestTimeoutException("http://localhost:8083/", 500),
