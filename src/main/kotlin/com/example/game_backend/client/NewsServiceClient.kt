@@ -21,29 +21,41 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
+import java.time.Duration
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toKotlinDuration
 
 @Component
-class NewsServiceClient {
+class NewsServiceClient(
+    @Value("\${game.clients.news.base-url}") baseUrl: String,
+    @Value("\${game.clients.news.connect-timeout}") connectTimeout: Duration,
+    @Value("\${game.clients.news.request-timeout}") requestTimeout: Duration,
+    @Value("\${game.clients.news.max-retries}") maxRetries: Int,
+    @Value("\${game.clients.news.circuit-breaker.max-failures}") circuitBreakerMaxFailures: Int,
+    @Value("\${game.clients.news.circuit-breaker.reset-timeout}") circuitBreakerResetTimeout: Duration,
+) {
     private val engine = NewsServiceMock().engine
 
     private val client =
         HttpClient(engine) {
             expectSuccess = true
             install(HttpCircuitBreaker) {
-                circuitBreaker(resetTimeout = 5.seconds, maxFailures = 5)
+                circuitBreaker(
+                    resetTimeout = circuitBreakerResetTimeout.toKotlinDuration(),
+                    maxFailures = circuitBreakerMaxFailures,
+                )
             }
             install(HttpRequestRetry) {
-                maxRetries = 1
+                this.maxRetries = maxRetries
                 delayMillis { 0L }
             }
             install(HttpTimeout) {
-                connectTimeoutMillis = 250L
-                requestTimeoutMillis = 500L
+                connectTimeoutMillis = connectTimeout.toMillis()
+                requestTimeoutMillis = requestTimeout.toMillis()
             }
 
             install(ContentNegotiation) {
@@ -55,7 +67,7 @@ class NewsServiceClient {
                 )
             }
             install(DefaultRequest) {
-                url("http://localhost:8083/")
+                url(baseUrl)
             }
         }.also { it.clearHistoryAfterEachCall(engine) }
 

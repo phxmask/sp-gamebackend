@@ -19,28 +19,40 @@ import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
+import java.time.Duration
 import kotlin.random.Random
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toKotlinDuration
 
 @Component
-class PlayerProfileServiceClient {
+class PlayerProfileServiceClient(
+    @Value("\${game.clients.player-profile.base-url}") baseUrl: String,
+    @Value("\${game.clients.player-profile.connect-timeout}") connectTimeout: Duration,
+    @Value("\${game.clients.player-profile.request-timeout}") requestTimeout: Duration,
+    @Value("\${game.clients.player-profile.max-retries}") maxRetries: Int,
+    @Value("\${game.clients.player-profile.circuit-breaker.max-failures}") circuitBreakerMaxFailures: Int,
+    @Value("\${game.clients.player-profile.circuit-breaker.reset-timeout}") circuitBreakerResetTimeout: Duration,
+) {
     private val engine = PlayerProfileServiceMock().engine
 
     private val client =
         HttpClient(engine) {
             expectSuccess = true
             install(HttpCircuitBreaker) {
-                circuitBreaker(resetTimeout = 5.seconds, maxFailures = 5)
+                circuitBreaker(
+                    resetTimeout = circuitBreakerResetTimeout.toKotlinDuration(),
+                    maxFailures = circuitBreakerMaxFailures,
+                )
             }
             install(HttpRequestRetry) {
-                maxRetries = 1
+                this.maxRetries = maxRetries
                 delayMillis { 0L }
             }
             install(HttpTimeout) {
-                connectTimeoutMillis = 250L
-                requestTimeoutMillis = 500L
+                connectTimeoutMillis = connectTimeout.toMillis()
+                requestTimeoutMillis = requestTimeout.toMillis()
             }
 
             install(ContentNegotiation) {
@@ -52,7 +64,7 @@ class PlayerProfileServiceClient {
                 )
             }
             install(DefaultRequest) {
-                url("http://localhost:8083/")
+                url(baseUrl)
             }
         }.also { it.clearHistoryAfterEachCall(engine) }
 

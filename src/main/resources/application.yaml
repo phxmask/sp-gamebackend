@@ -5,3 +5,38 @@ spring:
     cache-names: "config,news,topLeaderboard,displayNames"
     caffeine:
       spec: "expireAfterWrite=30s"
+
+game:
+  clients:
+    config:
+      base-url: "http://localhost:8083/"
+      connect-timeout: 250ms
+      request-timeout: 500ms
+      max-retries: 1
+      circuit-breaker:
+        max-failures: 5
+        reset-timeout: 5s
+    leaderboard:
+      base-url: "http://localhost:8083/"
+      connect-timeout: 250ms
+      request-timeout: 500ms
+      max-retries: 1
+      circuit-breaker:
+        max-failures: 5
+        reset-timeout: 5s
+    news:
+      base-url: "http://localhost:8083/"
+      connect-timeout: 250ms
+      request-timeout: 500ms
+      max-retries: 1
+      circuit-breaker:
+        max-failures: 5
+        reset-timeout: 5s
+    player-profile:
+      base-url: "http://localhost:8083/"
+      connect-timeout: 250ms
+      request-timeout: 500ms
+      max-retries: 1
+      circuit-breaker:
+        max-failures: 5
+        reset-timeout: 5s
