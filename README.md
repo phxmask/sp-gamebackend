@@ -18,7 +18,7 @@ Implementation of the game backend specified for the work test.
 
 The server was implemented using Kotlin and Spring Boot. I tried to keep it as native as possible to kotlin and reduce any external infrastructure dependencies for the sake of this being mostly self contained for review
 
-Expected errors (unknown level, daily limit reached, battle not started) are modelled as typed errors with [Arrow](https://arrow-kt.io/)'s `Either` instead of exceptions, and mapped to HTTP responses in the controllers.
+Expected errors (unknown level, daily limit reached, battle not started) are modeled as typed errors with [Arrow](https://arrow-kt.io/)'s `Either` instead of exceptions, and mapped to HTTP responses in the controllers.
 
 Some liberty was taken due to gaps in the requirements shared. 
  - The service apply its own rules to ties in the returned leaderboard scores, since we have no guarantees that the position returned by the score endpoint is from the requesting player
@@ -31,16 +31,21 @@ Some liberty was taken due to gaps in the requirements shared.
 
 Since I was trying to be more Kotlin native with this project I decided to go with [ktor-client](https://ktor.io/docs/client-create-new-application.html) for the clients instead of the ones provided by Spring Boot.
 Retries, timeouts and JSON Serialization/Deserilization were implemented using the respective ktor-client plugins.
+
 For mocking each client when running the application, ktor-client [MockEngine](https://ktor.io/docs/client-testing.html) was used instead of the other available engines. It is the engine used for running tests against ktor-client
-but used here as a stand in, as we mock the responses. Mock responses adds fake latency and failures.
+but used here as a stand in, as we add fake latency and failures while keeping a somewhat real setup for review.
 
 Most client responses are cached via spring caching using Caffeine. For testing purposes they all share the same TTL but should be further tweaked in a real scenario
 For certain failures, fallbacks are used so that the player might still interact with the remaining information.
 
+A circuit breaker is implemented via the [HttpCircuitBreaker](https://apidocs.arrow-kt.io/arrow-resilience-ktor-client/arrow.resilience.ktor.client/-http-circuit-breaker/index.html) plugin from Arrow
+
 ## Persistence
 
-The PlayerState is persisted across executions via [LMDB](https://www.symas.com/lmdb), an embedded database. This was mostly picked to reduce dependencies as we only rely on the kotlin-lmdb lib. 
-An obvious downside is that this can't scale horizontally as it is now, an alternative would be to use something like redis instead as the key value store for player states.
+The Player State is persisted across executions via [LMDB](https://www.symas.com/lmdb), an embedded database. This was mostly picked to reduce dependencies as it then relies only on the kotlin-lmdb lib. 
+
+An alternative on a real environment would be to use something like redis or dynamoDB to scale further
+
 Data is flushed to disk every second for performance purposes, and states older than 2 days are evicted from the DB 
 
 ## Out of scope
@@ -48,4 +53,4 @@ Data is flushed to disk every second for performance purposes, and states older 
 - Requests are partially validated but the flow is largely still client authoritative, with this server receiving the score and playerId directly from the caller. No authentication was built for this.
 - Infrastructure concerns: As mentioned in the persistence section this can only scale vertically for now.
 - Rate limiting
-- Separate TTL per cache(left as TODO)
+- Separate TTL per cache(simplified for now)
