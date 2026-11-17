@@ -6,6 +6,7 @@ import arrow.core.right
 import com.example.game_backend.client.ConfigServiceClient
 import com.example.game_backend.client.LeaderboardServiceClient
 import com.example.game_backend.domain.ActiveBattle
+import com.example.game_backend.domain.CompletedBattle
 import com.example.game_backend.domain.PlayerState
 import com.example.game_backend.domain.toUtcDate
 import com.example.game_backend.persistence.PlayerStateLMDBStore
@@ -144,16 +145,31 @@ class BattleService(
         now: Instant,
     ): PlayerState? {
         var completed: PlayerState? = null
+        val completedBattle = CompletedBattle(battleId, score)
         playerState.compute(playerId, day) { v ->
-            if (v != null && v.activeBattle?.id == battleId) {
-                v
-                    .copy(
-                        activeBattle = null,
-                        dailyScore = maxOf(0, v.dailyScore + score),
-                        lastActiveTime = now,
-                    ).also { completed = it }
-            } else {
-                null
+            when {
+                v == null -> {
+                    null
+                }
+
+                v.activeBattle?.id == battleId -> {
+                    v
+                        .copy(
+                            activeBattle = null,
+                            lastCompletedBattle = completedBattle,
+                            dailyScore = maxOf(0, v.dailyScore + score),
+                            lastActiveTime = now,
+                        ).also { completed = it }
+                }
+
+                // A retry of the last completed battle gets the same result, without scoring it again
+                v.lastCompletedBattle == completedBattle -> {
+                    v.copy(lastActiveTime = now).also { completed = it }
+                }
+
+                else -> {
+                    null
+                }
             }
         }
         return completed

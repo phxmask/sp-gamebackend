@@ -17,8 +17,11 @@ import com.example.game_backend.domain.PlayerState
 import com.example.game_backend.persistence.PlayerStateLMDBStore
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
-import io.mockk.slot
+import io.mockk.runs
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Named
@@ -43,12 +46,10 @@ class PlayerStateServiceTest {
     private val service =
         PlayerStateService(playerProfileClient, configClient, newsClient, leaderboardClient, playerStateStore)
 
-    private val update = slot<(PlayerState?) -> PlayerState?>()
-    private var storedState: PlayerState? = null
-
     @BeforeEach
     fun setUp() {
         givenStoredState(null)
+        every { playerStateStore.recordActivity(any(), any()) } just runs
         coEvery { configClient.getConfig() } returns ConfigDto(levels = LEVELS)
         coEvery { newsClient.getNews(any()) } returns emptyList()
         coEvery { leaderboardClient.getTopLeaderboard(any()) } returns emptyList()
@@ -59,15 +60,16 @@ class PlayerStateServiceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("storedStates")
-    fun `updates the last active time and keeps the rest of the state`(existing: PlayerState?) =
+    fun `updates the last active time without writing the state`(existing: PlayerState?) =
         runTest {
             givenStoredState(existing)
             val before = Clock.System.now()
 
             val result = service.getPlayerState(PLAYER_ID)
 
-            assertEquals((existing ?: PlayerState()).copy(lastActiveTime = result.activity), storedState)
             assertTrue(result.activity in before..Clock.System.now())
+            verify(exactly = 1) { playerStateStore.recordActivity(PLAYER_ID, result.activity) }
+            coVerify(exactly = 0) { playerStateStore.compute(any(), any(), any()) }
         }
 
     @Test
@@ -240,9 +242,7 @@ class PlayerStateServiceTest {
         }
 
     private fun givenStoredState(state: PlayerState?) {
-        coEvery { playerStateStore.compute(PLAYER_ID, any(), capture(update)) } answers {
-            update.captured(state)?.also { storedState = it }
-        }
+        coEvery { playerStateStore.get(PLAYER_ID, any()) } returns state
     }
 
     data class WindowCase(

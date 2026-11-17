@@ -24,13 +24,14 @@ class CacheConfig {
     fun asyncCacheModeCustomizer(
         configClient: ObjectProvider<ConfigServiceClient>,
         @Value("\${game.clients.config.refresh-interval}") configRefreshInterval: Duration,
-    ): CacheManagerCustomizer<CaffeineCacheManager> = CacheManagerCustomizer {
-        it.setAsyncCacheMode(true)
-        it.registerCustomCache(
-            CONFIG_CACHE,
-            refreshingCache(configRefreshInterval) { configClient.getObject().fetchConfig() },
-        )
-    }
+    ): CacheManagerCustomizer<CaffeineCacheManager> =
+        CacheManagerCustomizer {
+            it.setAsyncCacheMode(true)
+            it.registerCustomCache(
+                CONFIG_CACHE,
+                refreshingCache(configRefreshInterval) { configClient.getObject().fetchConfig() },
+            )
+        }
 
     companion object {
         const val CONFIG_CACHE = "config"

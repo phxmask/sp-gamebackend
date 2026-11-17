@@ -16,8 +16,15 @@ data class ActiveBattle(
 )
 
 @Serializable
+data class CompletedBattle(
+    val id: Uuid,
+    val score: Int,
+)
+
+@Serializable
 data class PlayerState(
     val activeBattle: ActiveBattle? = null,
+    val lastCompletedBattle: CompletedBattle? = null,
     val dailyBattleStats: Map<Long, Int> = emptyMap(), // (LevelId, count)
     val dailyScore: Int = 0,
     val lastActiveTime: Instant = Clock.System.now(),

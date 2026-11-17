@@ -23,7 +23,9 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Repository
 import java.io.File
 import java.time.LocalDate
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 @Repository
 class PlayerStateLMDBStore(
@@ -49,6 +51,8 @@ class PlayerStateLMDBStore(
     // Single writer
     private val readDispatcher = Dispatchers.IO
     private val writeDispatcher = Dispatchers.IO.limitedParallelism(1)
+
+    private val pendingActivity = ConcurrentHashMap<Long, Instant>()
 
     suspend fun get(
         playerId: Long,
@@ -78,10 +82,50 @@ class PlayerStateLMDBStore(
             }
         }
 
+    fun recordActivity(
+        playerId: Long,
+        at: Instant,
+    ) {
+        pendingActivity.merge(playerId, at) { current, new -> maxOf(current, new) }
+    }
+
+    @Scheduled(
+        fixedDelayString = "\${game.lmdb.activity-flush-interval-ms:1000}",
+        initialDelayString = "\${game.lmdb.activity-flush-interval-ms:1000}",
+    )
+    fun flushActivity() {
+        synchronized(lifecycleLock) {
+            if (closed) return
+            flushPendingActivity()
+        }
+    }
+
+    private fun flushPendingActivity() {
+        val batch =
+            pendingActivity.keys.mapNotNull { playerId -> pendingActivity.remove(playerId)?.let { playerId to it } }
+        if (batch.isEmpty()) return
+        try {
+            env.beginTxn().use { txn ->
+                batch.forEach { (playerId, at) ->
+                    val k = key(playerId, at.toUtcDate())
+                    val current = txn.get(dbi, k).toValueByteArray()?.let(::decode)
+                    if (current == null || current.lastActiveTime < at) {
+                        txn.put(dbi, k, encode((current ?: PlayerState()).copy(lastActiveTime = at)))
+                    }
+                }
+                txn.commit()
+            }
+        } catch (e: LmdbException) {
+            log.error("Failed to flush the activity of {} players, retrying on the next flush", batch.size, e)
+            batch.forEach { (playerId, at) -> recordActivity(playerId, at) }
+        }
+    }
+
     @PreDestroy
     fun close() {
         synchronized(lifecycleLock) {
             closed = true
+            flushPendingActivity()
             env.sync(true)
             env.close()
         }

@@ -7,6 +7,7 @@ import com.example.game_backend.client.LeaderboardServiceClient
 import com.example.game_backend.client.dto.ConfigDto
 import com.example.game_backend.client.dto.LevelsDto
 import com.example.game_backend.domain.ActiveBattle
+import com.example.game_backend.domain.CompletedBattle
 import com.example.game_backend.domain.PlayerState
 import com.example.game_backend.domain.toUtcDate
 import com.example.game_backend.persistence.PlayerStateLMDBStore
@@ -144,7 +145,6 @@ class BattleServiceTest {
         assertEquals(if (levelId == LEVEL_ID) 2 else 1, state.dailyBattleStats.getValue(levelId))
     }
 
-
     @Test
     fun `rejects a battle once the level's daily limit is reached`() =
         runTest {
@@ -201,6 +201,7 @@ class BattleServiceTest {
         val state = storedStates.getValue(today)
         assertEquals(POSITION.right(), result)
         assertNull(state.activeBattle)
+        assertEquals(CompletedBattle(battleId, score), state.lastCompletedBattle)
         assertEquals(expectedDailyScore, state.dailyScore)
         assertTrue(state.lastActiveTime in before..Clock.System.now())
         coVerify(exactly = 1) { leaderboardClient.updatePlayerScore(PLAYER_ID, expectedDailyScore) }
@@ -237,6 +238,59 @@ class BattleServiceTest {
             assertEquals(states.mapKeys { (daysAgo, _) -> today.minusDays(daysAgo) }, storedStates)
             coVerify(exactly = 0) { leaderboardClient.updatePlayerScore(any(), any()) }
             coVerify(exactly = 0) { leaderboardClient.getLeaderboardPosition(any()) }
+        }
+
+    @Test
+    fun `returns the same result without scoring again when the completion is retried`() =
+        runTest {
+            storedStates[today] = PlayerState(activeBattle = ActiveBattle(BATTLE_ID, LEVEL_ID), dailyScore = 10)
+            val first = service.completeBattle(PLAYER_ID, BATTLE_ID, score = 50)
+            val completed = storedStates.getValue(today)
+            val before = Clock.System.now()
+
+            val retry = service.completeBattle(PLAYER_ID, BATTLE_ID, score = 50)
+
+            val state = storedStates.getValue(today)
+            assertEquals(POSITION.right(), first)
+            assertEquals(first, retry)
+            assertEquals(completed.copy(lastActiveTime = state.lastActiveTime), state)
+            assertEquals(60, state.dailyScore)
+            assertTrue(state.lastActiveTime in before..Clock.System.now())
+            coVerify(exactly = 2) { leaderboardClient.updatePlayerScore(PLAYER_ID, 60) }
+        }
+
+    @Test
+    fun `returns the current daily score position when the retry comes after another battle started`() =
+        runTest {
+            storedStates[today] =
+                PlayerState(
+                    activeBattle = ActiveBattle(Uuid.random(), OTHER_LEVEL_ID),
+                    lastCompletedBattle = CompletedBattle(BATTLE_ID, 50),
+                    dailyScore = 60,
+                )
+            val existing = storedStates.getValue(today)
+
+            val retry = service.completeBattle(PLAYER_ID, BATTLE_ID, score = 50)
+
+            val state = storedStates.getValue(today)
+            assertEquals(POSITION.right(), retry)
+            assertEquals(existing.copy(lastActiveTime = state.lastActiveTime), state)
+        }
+
+    @Test
+    fun `retries the completion of yesterday's battle without scoring it on today's leaderboard`() =
+        runTest {
+            storedStates[today.minusDays(1)] =
+                PlayerState(lastCompletedBattle = CompletedBattle(BATTLE_ID, 50), dailyScore = 250)
+            storedStates[today] = PlayerState(dailyScore = 70)
+
+            val retry = service.completeBattle(PLAYER_ID, BATTLE_ID, score = 50)
+
+            assertEquals(POSITION.right(), retry)
+            assertEquals(250, storedStates.getValue(today.minusDays(1)).dailyScore)
+            assertEquals(70, storedStates.getValue(today).dailyScore)
+            coVerify(exactly = 0) { leaderboardClient.updatePlayerScore(any(), any()) }
+            coVerify(exactly = 1) { leaderboardClient.getLeaderboardPosition(70) }
         }
 
     @Test
@@ -309,7 +363,15 @@ class BattleServiceTest {
                 Named.of("no state", emptyMap()),
                 Named.of(
                     "already completed",
-                    mapOf(0L to PlayerState(dailyScore = 20), 1L to PlayerState(dailyScore = 40))
+                    mapOf(0L to PlayerState(dailyScore = 20), 1L to PlayerState(dailyScore = 40)),
+                ),
+                Named.of(
+                    "completed with another score",
+                    mapOf(0L to PlayerState(lastCompletedBattle = CompletedBattle(BATTLE_ID, 49), dailyScore = 49)),
+                ),
+                Named.of(
+                    "another battle was completed last",
+                    mapOf(0L to PlayerState(lastCompletedBattle = CompletedBattle(Uuid.random(), 50), dailyScore = 50)),
                 ),
                 Named.of(
                     "another battle is active",

@@ -34,10 +34,9 @@ class PlayerStateService(
     suspend fun getPlayerState(playerId: Long): PlayerStateDto =
         coroutineScope {
             val now = Clock.System.now()
-            val state =
-                playerState.compute(playerId, now.toUtcDate()) { v ->
-                    (v ?: PlayerState()).copy(lastActiveTime = now)
-                }!!
+            val state = (playerState.get(playerId, now.toUtcDate()) ?: PlayerState()).copy(lastActiveTime = now)
+            // This batches the activity time to be written asynchronously so we don't have to write to the store in this path.
+            playerState.recordActivity(playerId, now)
 
             val levels = async { getLevels(state) }
             val news = async { getNews() }
@@ -92,8 +91,7 @@ class PlayerStateService(
                 leaderboardClient
                     .getTopLeaderboard(TOP_LEADERBOARD_COUNT)
                     .mapIndexed { index, entry -> entry to 1L + index }
-            }
-            .onLeft { log.warn("Failed to fetch top leaderboard, returning no entries: {}", it.message) }
+            }.onLeft { log.warn("Failed to fetch top leaderboard, returning no entries: {}", it.message) }
             .getOrElse { emptyList() }
 
     private suspend fun getAroundPlayerEntries(
@@ -122,9 +120,9 @@ class PlayerStateService(
                     entries
                 } else {
                     (
-                        entries.filterNot { (_, position) -> position == playerPosition } +
-                            (LeaderboardDto(playerId, dailyScore) to playerPosition)
-                    ).sortedBy { (_, position) -> position }
+                            entries.filterNot { (_, position) -> position == playerPosition } +
+                                    (LeaderboardDto(playerId, dailyScore) to playerPosition)
+                            ).sortedBy { (_, position) -> position }
                 }
             }.onLeft {
                 log.warn(

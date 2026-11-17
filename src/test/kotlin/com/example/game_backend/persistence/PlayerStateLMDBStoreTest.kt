@@ -1,6 +1,7 @@
 package com.example.game_backend.persistence
 
 import com.example.game_backend.domain.ActiveBattle
+import com.example.game_backend.domain.CompletedBattle
 import com.example.game_backend.domain.PlayerState
 import com.example.game_backend.domain.toUtcDate
 import kotlinx.coroutines.async
@@ -17,6 +18,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
@@ -142,12 +144,65 @@ class PlayerStateLMDBStoreTest {
         }
 
     @Test
+    fun `doesn't store recorded activity before it is flushed`() =
+        runTest {
+            store.recordActivity(PLAYER_ID, ACTIVE_AT)
+
+            assertNull(store.get(PLAYER_ID, ACTIVE_DAY))
+        }
+
+    @Test
+    fun `flushes the activity of a new player into a new state`() =
+        runTest {
+            store.recordActivity(PLAYER_ID, ACTIVE_AT)
+
+            store.flushActivity()
+
+            assertEquals(PlayerState(lastActiveTime = ACTIVE_AT), store.get(PLAYER_ID, ACTIVE_DAY))
+        }
+
+    @Test
+    fun `flushes the latest activity and keeps the rest of the state`() =
+        runTest {
+            store.compute(PLAYER_ID, ACTIVE_DAY) { STATE }
+            store.recordActivity(PLAYER_ID, ACTIVE_AT + 2.minutes)
+            store.recordActivity(PLAYER_ID, ACTIVE_AT + 1.minutes)
+
+            store.flushActivity()
+
+            assertEquals(STATE.copy(lastActiveTime = ACTIVE_AT + 2.minutes), store.get(PLAYER_ID, ACTIVE_DAY))
+        }
+
+    @Test
+    fun `keeps the last active time of a state that was updated after the activity`() =
+        runTest {
+            store.recordActivity(PLAYER_ID, ACTIVE_AT - 1.minutes)
+            store.compute(PLAYER_ID, ACTIVE_DAY) { STATE }
+
+            store.flushActivity()
+
+            assertEquals(STATE, store.get(PLAYER_ID, ACTIVE_DAY))
+        }
+
+    @Test
+    fun `flushes the pending activity when closed`() =
+        runTest {
+            store.recordActivity(PLAYER_ID, ACTIVE_AT)
+
+            closeStore()
+            openStore()
+
+            assertEquals(PlayerState(lastActiveTime = ACTIVE_AT), store.get(PLAYER_ID, ACTIVE_DAY))
+        }
+
+    @Test
     fun `skips the scheduled jobs once closed`() {
         closeStore()
 
         assertDoesNotThrow {
             store.sync()
             store.deleteExpired()
+            store.flushActivity()
         }
     }
 
@@ -166,13 +221,16 @@ class PlayerStateLMDBStoreTest {
     companion object {
         private const val PLAYER_ID = 42L
         private const val OTHER_PLAYER_ID = 7L
+        private val ACTIVE_AT = Instant.parse("2026-11-16T10:00:00Z")
+        private val ACTIVE_DAY = ACTIVE_AT.toUtcDate()
 
         private val STATE =
             PlayerState(
                 activeBattle = ActiveBattle(Uuid.parse("3f2b8c1e-5d4a-4e7b-9c6f-1a2b3c4d5e6f"), levelId = 1),
+                lastCompletedBattle = CompletedBattle(Uuid.parse("9a1c7d2e-4b3f-4c8a-8e5d-6f7a8b9c0d1e"), score = 40),
                 dailyBattleStats = mapOf(1L to 2, 3L to 1),
                 dailyScore = 120,
-                lastActiveTime = Instant.parse("2026-11-16T10:00:00Z"),
+                lastActiveTime = ACTIVE_AT,
             )
     }
 }

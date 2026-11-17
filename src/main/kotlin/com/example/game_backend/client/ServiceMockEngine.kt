@@ -38,7 +38,7 @@ object ServiceMockBehavior {
 
 // This is pretty ugly BUT MockEngine stores every request and response internally in a list, so when running for long this would degrade performance eventually
 // discussed in https://github.com/ktorio/ktor/issues/913
-// As we never read the history, this extension drops it after each call and can be implemented via plugins 
+// As we never read the history, this extension drops it after each call and can be implemented via plugins
 fun HttpClient.clearHistoryAfterEachCall(engine: MockEngine) {
     plugin(HttpSend).intercept { request ->
         execute(request).also {
