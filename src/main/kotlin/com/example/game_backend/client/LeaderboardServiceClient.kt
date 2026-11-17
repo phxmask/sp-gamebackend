@@ -3,6 +3,8 @@ package com.example.game_backend.client
 import arrow.resilience.ktor.client.HttpCircuitBreaker
 import com.example.game_backend.client.dto.LeaderboardDto
 import com.example.game_backend.client.dto.LeaderboardPositionDto
+import com.github.benmanes.caffeine.cache.Caffeine
+import com.sksamuel.aedile.core.asCache
 import io.ktor.client.*
 import io.ktor.client.call.body
 import io.ktor.client.engine.mock.MockEngine
@@ -25,7 +27,6 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
 import java.time.Duration
 import kotlin.time.toKotlinDuration
@@ -38,6 +39,7 @@ class LeaderboardServiceClient(
     @Value("\${game.clients.leaderboard.max-retries}") maxRetries: Int,
     @Value("\${game.clients.leaderboard.circuit-breaker.max-failures}") circuitBreakerMaxFailures: Int,
     @Value("\${game.clients.leaderboard.circuit-breaker.reset-timeout}") circuitBreakerResetTimeout: Duration,
+    @Value("\${game.cache.top-leaderboard.expire-after-write}") cacheExpireAfterWrite: Duration,
 ) {
     private val engine = LeaderboardServiceMock().engine
 
@@ -52,7 +54,7 @@ class LeaderboardServiceClient(
             }
             install(HttpRequestRetry) {
                 this.maxRetries = maxRetries
-                delayMillis { 0L }
+                exponentialDelay(baseDelayMs = 50L, maxDelayMs = 200L, randomizationMs = 50L)
             }
             install(HttpTimeout) {
                 connectTimeoutMillis = connectTimeout.toMillis()
@@ -95,8 +97,14 @@ class LeaderboardServiceClient(
                 it.score
             } // As per the assigment, its not clear if this list is sorted already, this could be dropped based on the API specification
 
-    @Cacheable("topLeaderboard", sync = true)
-    suspend fun getTopLeaderboard(count: Long): List<LeaderboardDto> = getLeaderboard(1, count)
+    private val topLeaderboardByCount =
+        Caffeine
+            .newBuilder()
+            .expireAfterWrite(cacheExpireAfterWrite)
+            .asCache<Long, List<LeaderboardDto>>()
+
+    suspend fun getTopLeaderboard(count: Long): List<LeaderboardDto> =
+        topLeaderboardByCount.get(count) { getLeaderboard(1, it) }
 
     // This endpoint is not defined in the assignment
     suspend fun updatePlayerScore(

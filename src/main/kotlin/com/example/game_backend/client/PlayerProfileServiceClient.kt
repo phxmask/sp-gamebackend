@@ -2,6 +2,8 @@ package com.example.game_backend.client
 
 import arrow.resilience.ktor.client.HttpCircuitBreaker
 import com.example.game_backend.client.dto.DisplayNameDto
+import com.github.benmanes.caffeine.cache.Caffeine
+import com.sksamuel.aedile.core.asLoadingCache
 import io.ktor.client.*
 import io.ktor.client.call.body
 import io.ktor.client.engine.mock.MockEngine
@@ -20,7 +22,6 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
 import java.time.Duration
 import kotlin.random.Random
@@ -34,6 +35,9 @@ class PlayerProfileServiceClient(
     @Value("\${game.clients.player-profile.max-retries}") maxRetries: Int,
     @Value("\${game.clients.player-profile.circuit-breaker.max-failures}") circuitBreakerMaxFailures: Int,
     @Value("\${game.clients.player-profile.circuit-breaker.reset-timeout}") circuitBreakerResetTimeout: Duration,
+    @Value("\${game.cache.display-names.refresh-after-write}") cacheRefreshAfterWrite: Duration,
+    @Value("\${game.cache.display-names.expire-after-write}") cacheExpireAfterWrite: Duration,
+    @Value("\${game.cache.display-names.maximum-size}") cacheMaximumSize: Long,
 ) {
     private val engine = PlayerProfileServiceMock().engine
 
@@ -48,7 +52,7 @@ class PlayerProfileServiceClient(
             }
             install(HttpRequestRetry) {
                 this.maxRetries = maxRetries
-                delayMillis { 0L }
+                exponentialDelay(baseDelayMs = 50L, maxDelayMs = 200L, randomizationMs = 50L)
             }
             install(HttpTimeout) {
                 connectTimeoutMillis = connectTimeout.toMillis()
@@ -68,8 +72,17 @@ class PlayerProfileServiceClient(
             }
         }.also { it.clearHistoryAfterEachCall(engine) }
 
-    @Cacheable("displayNames", sync = true)
-    suspend fun getDisplayName(id: Long): String =
+    private val displayNamesById =
+        Caffeine
+            .newBuilder()
+            .refreshAfterWrite(cacheRefreshAfterWrite)
+            .expireAfterWrite(cacheExpireAfterWrite)
+            .maximumSize(cacheMaximumSize)
+            .asLoadingCache<Long, String> { fetchDisplayName(it) }
+
+    suspend fun getDisplayName(id: Long): String = displayNamesById.get(id)
+
+    private suspend fun fetchDisplayName(id: Long): String =
         client
             .get("getPlayerDisplayName") {
                 url {

@@ -22,15 +22,13 @@ repositories {
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("com.github.ben-manes.caffeine:caffeine")
+    implementation("com.sksamuel.aedile:aedile-core:3.0.4")
     implementation("org.springframework.boot:spring-boot-starter-webclient")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-kotlinx-serialization-json")
-    implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
     implementation("tools.jackson.module:jackson-module-kotlin")
     implementation("io.ktor:ktor-client-core:3.4.3")
     implementation("io.ktor:ktor-client-cio:3.4.3")

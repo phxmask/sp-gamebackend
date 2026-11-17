@@ -6,6 +6,7 @@ import com.example.game_backend.service.CompleteBattleError
 import com.example.game_backend.service.StartBattleError
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
+import kotlinx.coroutines.runBlocking
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
@@ -24,18 +25,18 @@ class BattleController(
     private val battleService: BattleService,
 ) {
     @PostMapping("/startBattle/{playerId}/levelId/{levelId}")
-    suspend fun startBattle(
+    fun startBattle(
         @PathVariable playerId: Long,
         @PathVariable levelId: Long,
         @RequestHeader(IDEMPOTENCY_KEY_HEADER, required = false) idempotencyKey: String?,
     ): ResponseEntity<*> =
-        battleService.startBattle(playerId, levelId, idempotencyKey).fold(
+        runBlocking { battleService.startBattle(playerId, levelId, idempotencyKey) }.fold(
             ifLeft = { it.toResponse() },
             ifRight = { ResponseEntity.ok(it.toString()) },
         )
 
     @PostMapping("/completeBattle/{playerId}/battleId/{battleId}/score/{score}")
-    suspend fun completeBattle(
+    fun completeBattle(
         @PathVariable playerId: Long,
         @PathVariable battleId: String,
         @PathVariable
@@ -47,7 +48,7 @@ class BattleController(
             Uuid.parseOrNull(battleId)
                 ?: return problem(HttpStatus.BAD_REQUEST, "Battle id $battleId is not a valid UUID")
 
-        return battleService.completeBattle(playerId, parsedBattleId, score).fold(
+        return runBlocking { battleService.completeBattle(playerId, parsedBattleId, score) }.fold(
             ifLeft = { it.toResponse() },
             ifRight = { ResponseEntity.ok(CompleteBattleResponseDto(position = it)) },
         )

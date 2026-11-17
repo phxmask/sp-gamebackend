@@ -2,7 +2,8 @@ package com.example.game_backend.client
 
 import arrow.resilience.ktor.client.HttpCircuitBreaker
 import com.example.game_backend.client.dto.ConfigDto
-import com.example.game_backend.config.CacheConfig
+import com.github.benmanes.caffeine.cache.Caffeine
+import com.sksamuel.aedile.core.asLoadingCache
 import io.ktor.client.*
 import io.ktor.client.call.body
 import io.ktor.client.engine.mock.MockEngine
@@ -20,7 +21,6 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
 import java.time.Duration
 import kotlin.time.toKotlinDuration
@@ -33,6 +33,7 @@ class ConfigServiceClient(
     @Value("\${game.clients.config.max-retries}") maxRetries: Int,
     @Value("\${game.clients.config.circuit-breaker.max-failures}") circuitBreakerMaxFailures: Int,
     @Value("\${game.clients.config.circuit-breaker.reset-timeout}") circuitBreakerResetTimeout: Duration,
+    @Value("\${game.clients.config.refresh-interval}") refreshInterval: Duration,
 ) {
     private val engine = ConfigServiceMock().engine
 
@@ -47,7 +48,7 @@ class ConfigServiceClient(
             }
             install(HttpRequestRetry) {
                 this.maxRetries = maxRetries
-                delayMillis { 0L }
+                exponentialDelay(baseDelayMs = 50L, maxDelayMs = 200L, randomizationMs = 50L)
             }
             install(HttpTimeout) {
                 connectTimeoutMillis = connectTimeout.toMillis()
@@ -66,8 +67,13 @@ class ConfigServiceClient(
             }
         }.also { it.clearHistoryAfterEachCall(engine) }
 
-    @Cacheable(CacheConfig.CONFIG_CACHE, sync = true)
-    suspend fun getConfig(): ConfigDto = fetchConfig()
+    private val cachedConfig =
+        Caffeine
+            .newBuilder()
+            .refreshAfterWrite(refreshInterval)
+            .asLoadingCache<Unit, ConfigDto> { fetchConfig() }
+
+    suspend fun getConfig(): ConfigDto = cachedConfig.get(Unit)
 
     suspend fun fetchConfig(): ConfigDto =
         client

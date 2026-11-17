@@ -3,6 +3,8 @@ package com.example.game_backend.client
 import arrow.resilience.ktor.client.HttpCircuitBreaker
 import com.example.game_backend.client.dto.NewsDto
 import com.example.game_backend.client.dto.NewsTypeDto
+import com.github.benmanes.caffeine.cache.Caffeine
+import com.sksamuel.aedile.core.asCache
 import io.ktor.client.*
 import io.ktor.client.call.body
 import io.ktor.client.engine.mock.MockEngine
@@ -22,7 +24,6 @@ import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
 import java.time.Duration
 import kotlin.time.Clock
@@ -37,6 +38,7 @@ class NewsServiceClient(
     @Value("\${game.clients.news.max-retries}") maxRetries: Int,
     @Value("\${game.clients.news.circuit-breaker.max-failures}") circuitBreakerMaxFailures: Int,
     @Value("\${game.clients.news.circuit-breaker.reset-timeout}") circuitBreakerResetTimeout: Duration,
+    @Value("\${game.cache.news.expire-after-write}") cacheExpireAfterWrite: Duration,
 ) {
     private val engine = NewsServiceMock().engine
 
@@ -51,7 +53,7 @@ class NewsServiceClient(
             }
             install(HttpRequestRetry) {
                 this.maxRetries = maxRetries
-                delayMillis { 0L }
+                exponentialDelay(baseDelayMs = 50L, maxDelayMs = 200L, randomizationMs = 50L)
             }
             install(HttpTimeout) {
                 connectTimeoutMillis = connectTimeout.toMillis()
@@ -71,8 +73,15 @@ class NewsServiceClient(
             }
         }.also { it.clearHistoryAfterEachCall(engine) }
 
-    @Cacheable("news", sync = true)
-    suspend fun getNews(count: Int): List<NewsDto> {
+    private val newsByCount =
+        Caffeine
+            .newBuilder()
+            .expireAfterWrite(cacheExpireAfterWrite)
+            .asCache<Int, List<NewsDto>>()
+
+    suspend fun getNews(count: Int): List<NewsDto> = newsByCount.get(count) { fetchNews(it) }
+
+    private suspend fun fetchNews(count: Int): List<NewsDto> {
         val news =
             client
                 .get("getNews") {

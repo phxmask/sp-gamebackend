@@ -1,12 +1,20 @@
 spring:
   application:
     name: game-backend
-  cache:
-    cache-names: "news,topLeaderboard,displayNames"
-    caffeine:
-      spec: "expireAfterWrite=30s"
+  threads:
+    virtual:
+      enabled: true
 
 game:
+  cache:
+    news:
+      expire-after-write: 30s
+    top-leaderboard:
+      expire-after-write: 30s
+    display-names:
+      refresh-after-write: 5m
+      expire-after-write: 10m
+      maximum-size: 100000
   clients:
     config:
       refresh-interval: 30s

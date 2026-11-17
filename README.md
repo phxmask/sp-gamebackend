@@ -35,7 +35,7 @@ Retries, timeouts and JSON Serialization/Deserilization were implemented using t
 For mocking each client when running the application, ktor-client [MockEngine](https://ktor.io/docs/client-testing.html) was used instead of the other available engines. It is the engine used for running tests against ktor-client
 but used here as a stand in, as we add fake latency and failures while keeping a somewhat real setup for review.
 
-Most client responses are cached via spring caching using Caffeine. For testing purposes they all share the same TTL but should be further tweaked in a real scenario
+Most client responses are cached via Caffeine using the Aedile wrapper so that it works nicely with coroutines. 
 For certain failures, fallbacks are used so that the player might still interact with the remaining information.
 
 A circuit breaker is implemented via the [HttpCircuitBreaker](https://apidocs.arrow-kt.io/arrow-resilience-ktor-client/arrow.resilience.ktor.client/-http-circuit-breaker/index.html) plugin from Arrow
@@ -57,4 +57,3 @@ Optionally there is a script under `loadtest` that I used to execute load tests 
 - Requests are partially validated but the flow is largely still client authoritative, with this server receiving the score and playerId directly from the caller. No authentication was built for this.
 - Infrastructure concerns: As mentioned in the persistence section this can only scale vertically for now.
 - Rate limiting
-- Separate TTL per cache(simplified for now)
