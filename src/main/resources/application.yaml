@@ -2,13 +2,14 @@ spring:
   application:
     name: game-backend
   cache:
-    cache-names: "config,news,topLeaderboard,displayNames"
+    cache-names: "news,topLeaderboard,displayNames"
     caffeine:
       spec: "expireAfterWrite=30s"
 
 game:
   clients:
     config:
+      refresh-interval: 30s
       base-url: "http://localhost:8083/"
       connect-timeout: 250ms
       request-timeout: 500ms

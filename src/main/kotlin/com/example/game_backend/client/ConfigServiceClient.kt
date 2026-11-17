@@ -2,6 +2,7 @@ package com.example.game_backend.client
 
 import arrow.resilience.ktor.client.HttpCircuitBreaker
 import com.example.game_backend.client.dto.ConfigDto
+import com.example.game_backend.config.CacheConfig
 import io.ktor.client.*
 import io.ktor.client.call.body
 import io.ktor.client.engine.mock.MockEngine
@@ -65,8 +66,10 @@ class ConfigServiceClient(
             }
         }.also { it.clearHistoryAfterEachCall(engine) }
 
-    @Cacheable("config", sync = true)
-    suspend fun getConfig(): ConfigDto =
+    @Cacheable(CacheConfig.CONFIG_CACHE, sync = true)
+    suspend fun getConfig(): ConfigDto = fetchConfig()
+
+    suspend fun fetchConfig(): ConfigDto =
         client
             .get("getConfig")
             .body()
