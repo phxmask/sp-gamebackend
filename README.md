@@ -48,6 +48,10 @@ An alternative on a real environment would be to use something like redis or dyn
 
 Data is flushed to disk every second for performance purposes, and states older than 2 days are evicted from the DB 
 
+## Load testing
+
+Optionally there is a script under `loadtest` that I used to execute load tests with [k6](https://k6.io/). These were kept simple just to sanity check the setup, since calls are all mocked for this work test.
+
 ## Out of scope
 
 - Requests are partially validated but the flow is largely still client authoritative, with this server receiving the score and playerId directly from the caller. No authentication was built for this.
